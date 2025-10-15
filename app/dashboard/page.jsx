@@ -395,7 +395,7 @@ export default function DashboardPage() {
         .drawer {
           max-width: 900px;
           margin: 20px auto 0;
-          background: linear-gradient(135deg, #e6f6ea 0%, #ffffff 80%);
+          background: linear-gradient(135deg, #dcebdf 0%, #ffffff 80%);
           border: 1px solid rgba(0, 0, 0, 0.06);
           border-radius: 20px;
           box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
