@@ -3,7 +3,7 @@ import Script from "next/script";
 import { useEffect } from "react";
 
 export default function LiveSimulator() {
-  // kleine UX: Atmung beim ersten Mount
+  // leichte UX-Atmung beim Mount
   useEffect(() => {
     const el = document.getElementById("company-input");
     if (el) el.classList.add("attention");
@@ -12,7 +12,7 @@ export default function LiveSimulator() {
 
   return (
     <>
-      {/* Fonts wie im Webflow laden (sichert exakte Optik) */}
+      {/* Fonts wie Webflow laden */}
       <Script id="sb-fonts" strategy="beforeInteractive">{`
         (function(){
           var l1=document.createElement('link'); l1.rel='stylesheet';
@@ -24,7 +24,7 @@ export default function LiveSimulator() {
         })();
       `}</Script>
 
-      {/* initAutocomplete definieren, bevor das Google-Script lädt */}
+      {/* initAutocomplete anlegen, bevor Google-Script geladen wird */}
       <Script id="sb-init-autocomplete" strategy="beforeInteractive">{`
         (function(){
           window.initAutocomplete = function(){
@@ -47,7 +47,7 @@ export default function LiveSimulator() {
                 var place = ac.getPlace();
                 if (!place || !place.name) return;
 
-                // Prefill-Event für dein Dashboard (falls benötigt)
+                // Prefill-Signal ans Dashboard (falls genutzt)
                 window.dispatchEvent(new CustomEvent("sb:place-selected", {
                   detail: {
                     name: place.name || "",
@@ -57,7 +57,7 @@ export default function LiveSimulator() {
                   }
                 }));
 
-                // Reviews abrufen + rendern
+                // Reviews abrufen
                 if (typeof window.sbFetchData === "function"){
                   window.sbFetchData(place.name, place.formatted_address || "");
                 }
@@ -67,13 +67,13 @@ export default function LiveSimulator() {
         })();
       `}</Script>
 
-      {/* Google Maps JS mit Callback */}
+      {/* Google Maps JS laden */}
       <Script
         src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places&callback=initAutocomplete`}
         strategy="afterInteractive"
       />
 
-      {/* HTML-Struktur 1:1 */}
+      {/* HTML 1:1 wie Webflow */}
       <div className="review-container">
         <h3 className="section-title">
           <img
@@ -86,32 +86,51 @@ export default function LiveSimulator() {
         </h3>
 
         <div className="review-card">
-          <input
-            className="search-box"
-            id="company-input"
-            type="text"
-            placeholder='Dein Unternehmen suchen... – z.B. "Restaurant XY"'
-          />
-          <p id="search-hint" className="search-hint">
-            🚀 Probier’s aus: Such dein Unternehmen und sieh selbst, was passiert.
-          </p>
-          <div id="review-output" className="loading-text"></div>
-          <div id="simulator" className="simulator-wrapper"></div>
+          {/* Wrapper, damit der Loader rechts im Feld positioniert werden kann */}
+          <div className="input-wrapper" style={{ position: "relative", display: "inline-block", width: "100%" }}>
+            <input
+              className="search-box"
+              id="company-input"
+              type="text"
+              placeholder='Dein Unternehmen suchen... – z.B. "Restaurant XY"'
+            />
+            <p id="search-hint" className="search-hint">
+              🚀 Probier’s aus: Such dein Unternehmen und sieh selbst, was passiert.
+            </p>
+            <div id="review-output" className="loading-text"></div>
+            <div id="simulator" className="simulator-wrapper"></div>
+            {/* kleiner Spinner rechts im Input (wird per JS ein-/ausgeblendet) */}
+            <div
+              id="input-loader"
+              style={{
+                position: "absolute",
+                top: "50%",
+                right: 12,
+                transform: "translateY(-50%)",
+                width: 18,
+                height: 18,
+                border: "2px solid #ccc",
+                borderTop: "2px solid #4caf50",
+                borderRadius: "50%",
+                animation: "spin 0.8s linear infinite",
+                display: "none",
+              }}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Logik: API-Fetch, Render, Enter-Suche, CTA */}
+      {/* Simulator-Logik: Countdown + Fetch über /api/reviews + Render */}
       <Script id="sb-simulator-logic" strategy="afterInteractive">{`
         (function(){
-          var REVIEW_API = (typeof process!=="undefined" && process.env && process.env.NEXT_PUBLIC_REVIEW_API)
-            ? process.env.NEXT_PUBLIC_REVIEW_API
-            : "https://sternblitz-review-simulator-cwnz.vercel.app/api/reviews";
+          // HINWEIS: Wir benutzen den eigenen Proxy → kein CORS-Problem
+          var REVIEW_API = "/api/reviews";
           var PAUSCHAL = 299;
 
           function q(s,p){ return (p||document).querySelector(s); }
           function fmt1(n){ return Number(n).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1}); }
 
-          // Placeholder-Atmung + Beispiele
+          // Atmender Placeholder + Beispiele
           function typePlaceholder(el, text, speed){
             var i=0; speed=speed||40; el.setAttribute('placeholder','');
             var id=setInterval(function(){ el.setAttribute('placeholder', text.slice(0, i++)); if(i>text.length) clearInterval(id); }, speed);
@@ -236,80 +255,108 @@ export default function LiveSimulator() {
               if (miniNew) miniNew.textContent=fmt1(newAvg);
             }
 
-            // Delegation für die drei Kacheln
+            // Delegation für die Kacheln
             document.addEventListener("click", function(e){
               var t=e.target.closest(".delete-option"); if(!t) return;
               var ids=(t.getAttribute("data-rem")||"").split(",").map(function(x){ return Number(x.trim()); });
               apply(ids, t);
             });
 
-            // CTA → Signal ans Dashboard (Form öffnen)
+            // CTA → später Formular auslösen
             var cta=document.getElementById("cta-btn");
             if (cta){ cta.addEventListener("click", function(){ window.dispatchEvent(new CustomEvent("sb:start-order")); }); }
 
-            // Enter-Taste → manuelle Suche
-            (function enableEnterSearch(){
-              var input=document.getElementById("company-input"); if(!input) return;
-              input.addEventListener("keydown", function(e){
-                if (e.key==="Enter"){
-                  var raw=input.value.trim(); if(!raw) return;
-                  var parts=raw.split(","), name=(parts.shift()||"").trim(), address=parts.join(",").trim();
-                  if (typeof window.sbFetchData==="function"){ window.sbFetchData(name, address); }
-                }
-              });
-            })();
-
-            // Loader & Fetch
+            // --- Loader / Countdown + Spinner ---
             var loadingStopper=null;
-            function startLoadingCountdown(el, duration){ duration=duration||4;
-              var n=duration; el.textContent="Lade Bewertungen… "+n;
-              var id=setInterval(function(){ n--; if(n>0) el.textContent="Lade Bewertungen… "+n; else { el.textContent="Lade Bewertungen…"; clearInterval(id);} },1000);
-              return function(){ clearInterval(id); el.textContent=""; };
+            function setInputSpinner(on){
+              var sp = document.getElementById("input-loader");
+              if (sp) sp.style.display = on ? "block" : "none";
+            }
+            function startLoadingCountdown(el, seconds){
+              seconds = seconds || 4;
+              el.style.display = "";
+              el.textContent = "Lade Bewertungen… " + seconds;
+              setInputSpinner(true);
+              var id = setInterval(function(){
+                seconds--;
+                if (seconds > 0) el.textContent = "Lade Bewertungen… " + seconds;
+                else { el.textContent = "Lade Bewertungen…"; clearInterval(id); }
+              }, 1000);
+              return function stop(){
+                clearInterval(id);
+                el.textContent = "";
+                setInputSpinner(false);
+              };
             }
 
+            // --- Fetch via eigenem Proxy ---
             function fetchData(name, address){
-              var out=q("#review-output"); var hint=q("#search-hint");
-              if (hint) hint.style.display="none";
-              if (loadingStopper){ loadingStopper(); loadingStopper=null; }
-              loadingStopper=startLoadingCountdown(out,4);
+              var out = q("#review-output");
+              var hint = q("#search-hint");
+              if (hint) hint.style.display = "none";
 
-              var url=REVIEW_API+"?name="+encodeURIComponent(name)+"&address="+encodeURIComponent(address);
-              fetch(url).then(function(r){ return r.json(); })
+              out.scrollIntoView({ behavior: "smooth", block: "center" });
+
+              if (loadingStopper) { loadingStopper(); loadingStopper = null; }
+              loadingStopper = startLoadingCountdown(out, 4);
+
+              var url = REVIEW_API + "?name=" + encodeURIComponent(name) + "&address=" + encodeURIComponent(address);
+              console.log("[SB] fetch:", url);
+              fetch(url, { cache: "no-store" })
+                .then(function(r){ console.log("[SB] status:", r.status); return r.json(); })
                 .then(function(d){
-                  if (loadingStopper){ loadingStopper(); loadingStopper=null; }
-                  out.textContent="";
-                  var avg=(d&&typeof d.averageRating==="number")?d.averageRating:4.1;
-                  var total=(d&&typeof d.totalReviews==="number")?d.totalReviews:250;
-                  var br=(d&&d.breakdown)?d.breakdown:{1:10,2:20,3:30,4:90,5:100};
+                  console.log("[SB] data:", d);
+                  if (loadingStopper) { loadingStopper(); loadingStopper = null; }
+                  out.textContent = "";
+
+                  // Fallbacks falls Upstream leer ist
+                  var avg = (d && typeof d.averageRating === "number") ? d.averageRating : 4.1;
+                  var total = (d && typeof d.totalReviews === "number") ? d.totalReviews : 250;
+                  var br = (d && d.breakdown) ? d.breakdown : {1:10,2:20,3:30,4:90,5:100};
+
                   render(name, avg, total, br);
-                  // Default: 1-3 aktiv
-                  var btn=document.getElementById("btn-123");
+
+                  // Default-Auswahl (1–3) aktivieren
+                  var btn = document.getElementById("btn-123");
                   if (btn) btn.click();
                 })
                 .catch(function(e){
-                  if (loadingStopper){ loadingStopper(); loadingStopper=null; }
-                  out.textContent="Fehler: "+(e&&e.message?e.message:e);
+                  console.error("[SB] fetch error:", e);
+                  if (loadingStopper) { loadingStopper(); loadingStopper = null; }
+                  out.textContent = "Fehler: " + (e && e.message ? e.message : e);
                 });
             }
 
-            // global verfügbar machen
+            // global verfügbar machen + Enter-Handler
             window.sbFetchData = fetchData;
+
+            (function enableEnterSearch(){
+              var input = document.getElementById("company-input");
+              if (!input) return;
+              input.addEventListener("keydown", function(e){
+                if (e.key === "Enter") {
+                  var raw = input.value.trim();
+                  if (!raw) return;
+                  var parts = raw.split(",");
+                  var name = (parts.shift() || "").trim();
+                  var address = parts.join(",").trim();
+                  window.sbFetchData(name, address);
+                }
+              });
+            })();
           })();
       `}</Script>
 
       {/* Diagnose (optional) */}
-      <Script id="sb-attach-fetch" strategy="afterInteractive">{`
+      <Script id="sb-dbg-ready" strategy="afterInteractive">{`
         window.addEventListener("DOMContentLoaded", function(){
           if (typeof window.sbFetchData === "function"){
             console.log("[Sternblitz] Simulator bereit");
-          } else {
-            console.warn("[Sternblitz] sbFetchData noch nicht da – prüfe in 1500ms nochmal");
-            setTimeout(function(){ if(typeof window.sbFetchData==="function") console.log("[Sternblitz] Simulator nachgeladen."); }, 1500);
           }
         });
       `}</Script>
 
-      {/* CSS 1:1, mobile Fix: Input nicht breiter als Card */}
+      {/* CSS (1:1) */}
       <style jsx global>{`
         @keyframes shake{0%{transform:translateX(0)}5%{transform:translateX(-8px)}10%{transform:translateX(8px)}15%{transform:translateX(-8px)}20%{transform:translateX(8px)}25%{transform:translateX(0)}100%{transform:translateX(0)}}
         .shake{animation:shake 1.5s ease-in-out infinite;opacity:1!important}
@@ -319,7 +366,7 @@ export default function LiveSimulator() {
         @media (max-width:479px){.search-hint{font-size:13px;margin-top:6px}}
         .section-title{max-width:975px;font-family:'Outfit',sans-serif;color:#010101;font-weight:400!important;margin:0 auto;font-size:48px;line-height:120%;text-align:center}
         .review-card{max-width:755px;margin:40px auto 0;padding:40px;border-radius:8px;background:#fff;box-sizing:border-box}
-        .search-box{width:100%;max-width:100% !important;padding:9px 20px;border:1px solid rgba(1,1,1,0.1);border-radius:8px;font-family:Poppins;font-size:18px;line-height:150%;outline:none;box-sizing:border-box}
+        .search-box{width:100%;max-width:100%!important;padding:9px 20px;border:1px solid rgba(1,1,1,0.1);border-radius:8px;font-family:Poppins;font-size:18px;line-height:150%;outline:none;box-sizing:border-box}
         .search-box:focus{border-color:#49a84c}
         .search-box::placeholder{color:#878686}
         @keyframes breathe{0%{transform:scale(0.985);box-shadow:0 0 0 rgba(73,168,76,0)}50%{transform:scale(1);box-shadow:0 10px 28px rgba(73,168,76,0.18)}100%{transform:scale(0.985);box-shadow:0 0 0 rgba(73,168,76,0)}}
@@ -371,8 +418,7 @@ export default function LiveSimulator() {
         .red-text{color:#E1432E}.green-text{color:#49A84C}
         @media (max-width:991px){.review-container{padding:70px 10px}.section-title{max-width:550px;font-size:40px}.rating-card{height:auto}}
         @media (max-width:767px){.review-container{padding:50px 10px}.section-title{font-size:36px}.review-card{margin-top:24px;padding:24px 12px}.search-box{font-size:16px}}
-        @media (max-width:479px){.review-container{padding:40px 10px;border-radius:12px}.section-title{font-size:32px}.review-card{padding:20px 12px 12px}.search-box{height:46px;padding:0 12px;font-size:16px;max-width:100% !important}}
-        @media (min-width:992px){.rating-text #bad-count::after{bottom:0px;height:14px;width:120%}.rating-block{margin-bottom:22px}}
+        @media (max-width:479px){.review-container{padding:40px 10px;border-radius:12px}.section-title{font-size:32px}.review-card{padding:20px 12px 12px}.search-box{height:46px;padding:0 12px;font-size:16px;max-width:100%!important}}
         @keyframes spin{0%{transform:translateY(-50%) rotate(0)}100%{transform:translateY(-50%) rotate(360deg)}}
       `}</style>
     </>
