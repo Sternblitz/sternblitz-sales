@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import LiveSimulator from "../../components/LiveSimulator"; // <- korrekter Pfad (app/dashboard -> ../.. -> components)
+import dynamic from "next/dynamic";
+
+// IMPORTANT: file must be exactly components/LiveSimulator.jsx (case sensitive on Linux/Vercel)
+const LiveSimulator = dynamic(() => import("../../components/LiveSimulator"), { ssr: false });
 
 export default function DashboardPage() {
   // --- UI / Offen-States ---
@@ -97,7 +100,7 @@ export default function DashboardPage() {
       sessionStorage.setItem("sb_checkout_payload", JSON.stringify(payload));
     } catch {}
 
-    // Hier später: fetch("/api/lead", {method:"POST", body: JSON.stringify(payload)})
+    // Hier später: fetch("/api/lead", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)})
     console.log("Lead payload:", payload);
     alert("Top! Wir haben deine Angaben vorgemerkt. (Nächster Schritt: PDF/Signatur/AGB)");
   };
