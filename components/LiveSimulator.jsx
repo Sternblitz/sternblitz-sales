@@ -451,17 +451,6 @@ export default function LiveSimulator() {
   padding-bottom: 12px;
 }
 
-#bad-count::after {
-  content: "";
-  position: absolute;
-  right: 0; /* rechtsbündig */
-  bottom: 0;
-  width: 160%;
-  height: 18px;
-  background: url("https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689f5500b57e679a1940c168_bracket-img.webp")
-    no-repeat right/contain;
-  pointer-events: none;
-}
 
 /* ---- Responsive ---- */
 @media (max-width: 991px) {
