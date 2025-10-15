@@ -386,4 +386,3 @@ export default function DashboardPage() {
       `}</style>
     </>
   );
-} 
