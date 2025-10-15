@@ -4,13 +4,18 @@ import { useEffect, useRef, useState } from "react";
 import Script from "next/script";
 
 /**
- * LiveSimulator – Webflow-Optik + Optionen
+ * LiveSimulator – Webflow-Optik + Optionen + Prefill-Persist
  * - Google Places Autocomplete
- * - ENTER oder Auswahl startet Fetch + Countdown
- * - Darstellung 1:1 wie Webflow (Chips, Klammer, 2 Karten)
- * - Unten: drei Options-Buttons (1–3 / 1–2 / nur 1 Stern)
- * - Kein "Hinweis-Text", kein "Jetzt loslegen"-CTA
- * - Auswahl in sessionStorage gemerkt (für spätere Prefill-Nutzung)
+ * - ENTER oder Auswahl startet Fetch + Countdown "Lade Bewertungen…"
+ * - Darstellung 1:1 wie Webflow (Chips, Klammer, 2 Karten, Option-Buttons)
+ * - Unten: NUR die drei Options-Buttons (1–3 / 1–2 / 1). KEIN zusätzlicher CTA.
+ * - Persist in sessionStorage:
+ *   - sb_selected_profile_text -> sichtbarer Text im Input
+ *   - sb_selected_profile      -> { name, address, url }
+ *   - sb_selected_option       -> "123" | "12" | "1"
+ * - Exponiert Helpers:
+ *   - window.sbSimulatorGetPrefill()
+ *   - window.sbSimulatorPersist()
  */
 export default function LiveSimulator() {
   const inputRef = useRef(null);
@@ -18,7 +23,41 @@ export default function LiveSimulator() {
   const [data, setData] = useState(null); // { averageRating, totalReviews, breakdown }
   const [error, setError] = useState("");
   const [selected, setSelected] = useState(null); // { name, address, url? }
-  const [activeOpt, setActiveOpt] = useState("123"); // "123" | "12" | "1"
+  const [activeOpt, setActiveOpt] = useState("123"); // "123" | "12" | "1" (1–3 vorselektiert)
+
+  // ---------- Persist Helpers ----------
+  const snapshot = () => {
+    const text = (inputRef.current?.value || "").trim();
+    return {
+      text,
+      option: activeOpt,
+      parsed: selected || { name: "", address: "", url: "" },
+    };
+  };
+
+  const persist = () => {
+    try {
+      const s = snapshot();
+      sessionStorage.setItem("sb_selected_profile_text", s.text);
+      sessionStorage.setItem("sb_selected_option", s.option);
+      sessionStorage.setItem("sb_selected_profile", JSON.stringify(s.parsed));
+      return s;
+    } catch (e) {
+      return snapshot();
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.sbSimulatorGetPrefill = () => snapshot();
+    window.sbSimulatorPersist = () => persist();
+  }, [activeOpt, selected]);
+
+  // Option sofort mitschreiben
+  useEffect(() => {
+    persist();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeOpt]);
 
   // ---------- Google Places ----------
   const onGoogleLoad = () => {
@@ -39,8 +78,10 @@ export default function LiveSimulator() {
         const url = place.url || "";
         const sel = { name, address, url };
         setSelected(sel);
-        sessionStorage.setItem("sb_selected_profile", JSON.stringify(sel));
-        inputRef.current.value = `${name}${address ? ", " + address : ""}`;
+        if (inputRef.current) {
+          inputRef.current.value = `${name}${address ? ", " + address : ""}`;
+        }
+        persist();
         runFetch(name, address);
       });
     } catch (e) {
@@ -96,7 +137,7 @@ export default function LiveSimulator() {
     const address = parts.join(",").trim();
     const sel = { name, address, url: "" };
     setSelected(sel);
-    sessionStorage.setItem("sb_selected_profile", JSON.stringify(sel));
+    persist();
     runFetch(name, address);
   };
 
@@ -121,9 +162,9 @@ export default function LiveSimulator() {
     return Math.min(200, Math.round(frac * 200));
   };
 
-  // berechne „Nach Löschung“ je nach aktiver Option
+  // „Nach Löschung“ je nach Option
   const reducedStats = (dataObj, opt) => {
-    const { averageRating: avg, totalReviews: total, breakdown } = dataObj;
+    const { totalReviews: total, breakdown } = dataObj;
     const map = { "123": [1, 2, 3], "12": [1, 2], "1": [1] };
     const removeArr = map[opt] || [1, 2, 3];
 
@@ -289,6 +330,7 @@ export default function LiveSimulator() {
               className="search-box attention"
               autoComplete="off"
               onKeyDown={onKeyDown}
+              onInput={persist}
             />
             {loadingText && <div id="review-output" className="loading-text">{loadingText}</div>}
             {error && !loadingText && (
