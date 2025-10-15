@@ -1,33 +1,22 @@
-"use client";
-import { useEffect, useState } from "react";
-import LiveSimulator from "@/components/LiveSimulator";
-import NewOrderStarter from "@/components/NewOrderStarter";
+useEffect(() => {
+  const input = document.getElementById("company-input");
 
-export default function DashboardPage() {
-  const [sim, setSim] = useState(null);
+  const onInput = () => {
+    const v = input?.value?.trim() || "";
+    setSim({ google_profile_url: v, ts: new Date().toISOString() });
+  };
 
-  useEffect(() => {
-    const input = document.getElementById("company-input");
-    if (!input) return;
-    const handler = () => {
-      setSim({ google_profile_url: input.value?.trim() || "", ts: new Date().toISOString() });
-    };
-    handler();
-    input.addEventListener("input", handler);
-    return () => input.removeEventListener("input", handler);
-  }, []);
+  const onPlace = (e) => {
+    const url = e?.detail?.url || "";
+    setSim({ google_profile_url: url, ts: new Date().toISOString() });
+  };
 
-  return (
-    <main style={{ minHeight: "100vh", padding: "12px" }}>
-      <div style={{ maxWidth: 1207, margin: "0 auto" }}>
-        {/* 1:1 Live-Simulator */}
-        <LiveSimulator />
+  onInput();
+  input?.addEventListener("input", onInput);
+  window.addEventListener("sb:place-selected", onPlace);
 
-        {/* Button in deinem Style */}
-        <div style={{ maxWidth: 755, margin: "16px auto 0" }}>
-          <NewOrderStarter prefill={sim} />
-        </div>
-      </div>
-    </main>
-  );
-}
+  return () => {
+    input?.removeEventListener("input", onInput);
+    window.removeEventListener("sb:place-selected", onPlace);
+  };
+}, []);
