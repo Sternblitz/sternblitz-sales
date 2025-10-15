@@ -37,7 +37,7 @@ export default function LoginPage() {
             alt="Sternblitz Logo"
             className="logo"
           />
-          <h1 className="headline">Sternblitz Salestool</h1>
+          <h1 className="headline">STERNBLITZ-SALESTOOL</h1>
           <p className="subtitle">Die All-in-One-Lösung</p>
         </div>
 
