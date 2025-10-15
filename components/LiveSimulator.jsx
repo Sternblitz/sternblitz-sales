@@ -393,6 +393,90 @@ export default function LiveSimulator() {
           .delete-option{max-width:175px;padding:12px}
           .option-title{font-size:16px}
         }
+        /* --- Bracket + underline (Pfeil) pixel-perfect like Webflow --- */
+.rating-block{
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 360px;            /* keeps it compact like Webflow */
+  margin: 18px auto 22px;      /* top & bottom spacing tuned */
+  z-index: 2;
+}
+
+.line-top{
+  display: block;
+  width: 64%;
+  max-width: 240px;
+  margin: 0 auto 8px;          /* small gap to the text row */
+  height: auto;                /* preserve aspect */
+}
+
+.rating-text{
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  font-family: 'Outfit', sans-serif;
+  color: #e13121;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1;
+  position: relative;
+}
+
+/* The underlining “arrow/stripe” under the count */
+#bad-count{
+  position: relative;
+  display: inline-block;
+  font-weight: 800;
+  line-height: 0.95;
+  padding-bottom: 14px;         /* room for the underline graphic */
+  z-index: 3;
+}
+
+#bad-count::after{
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;                    /* sits snug under the digits */
+  width: 128%;
+  height: 16px;
+  background: url("https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/68a03d044d9deabf71840200_line.svg") no-repeat center/contain;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ---- Tablet tweaks ---- */
+@media (max-width: 991px){
+  .rating-block{ max-width: 340px; margin-bottom: 22px; }
+  .line-top{ width: 62%; max-width: 230px; margin-bottom: 7px; }
+  #bad-count{ padding-bottom: 15px; }
+  #bad-count::after{ width: 132%; height: 17px; bottom: 0; }
+}
+
+/* ---- Mobile (<= 767) ---- */
+@media (max-width: 767px){
+  .rating-block{ max-width: 320px; margin-bottom: 20px; }
+  .line-top{ width: 58%; max-width: 210px; margin-bottom: 6px; }
+  .rating-text{ font-size: 18px; }
+  #bad-count{ padding-bottom: 16px; }
+  #bad-count::after{ width: 136%; height: 18px; bottom: -2px; }
+}
+
+/* ---- Small phones (<= 479) ---- */
+@media (max-width: 479px){
+  .rating-block{ max-width: 300px; margin-bottom: 18px; }
+  .line-top{ width: 54%; max-width: 190px; margin-bottom: 5px; }
+  .rating-text{ font-size: 16px; }
+  #bad-count{ padding-bottom: 18px; }
+  #bad-count::after{ width: 140%; height: 19px; bottom: -3px; }
+}
+
+/* Optional: hide any old bottom line if present */
+.line-bottom{ display: none !important; }
       `}</style>
     </>
   );
