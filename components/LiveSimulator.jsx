@@ -1,60 +1,107 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import Script from "next/script";
 
-/** 1:1 deiner HTML/CSS-Version als React-Component */
 export default function LiveSimulator() {
-  // kleiner Effekt: Input bekommt beim Laden die „attention“-Animation
+  const initialized = useRef(false);
+
+  // Init Google Places Autocomplete (wird nach Script-Load aufgerufen)
+  const initPlaces = () => {
+    if (initialized.current) return;
+    const el = document.getElementById("company-input");
+    if (!el || !window.google?.maps?.places) return;
+
+    const ac = new window.google.maps.places.Autocomplete(el, {
+      fields: ["place_id", "name", "url", "website", "formatted_address", "rating", "user_ratings_total"],
+      types: ["establishment"],
+      componentRestrictions: { country: ["de", "at", "ch"] }
+    });
+
+    ac.addListener("place_changed", () => {
+      const place = ac.getPlace();
+      // Versuche offizielle URL; fallback: Place-ID-URL
+      const url =
+        place?.url ||
+        (place?.place_id ? `https://www.google.com/maps/place/?q=place_id:${place.place_id}` : "");
+      // Trigger Custom Event, damit das Dashboard die URL sauber bekommt
+      window.dispatchEvent(
+        new CustomEvent("sb:place-selected", {
+          detail: {
+            url,
+            name: place?.name || "",
+            address: place?.formatted_address || "",
+            rating: place?.rating ?? null,
+            reviews: place?.user_ratings_total ?? null,
+            place_id: place?.place_id || ""
+          }
+        })
+      );
+    });
+
+    initialized.current = true;
+  };
+
   useEffect(() => {
+    // kleine Attention-Animation
     const el = document.getElementById("company-input");
     if (el) el.classList.add("attention");
     return () => el && el.classList.remove("attention");
   }, []);
 
   return (
-    <div className="review-container">
-      <h3 className="section-title">
-        <img
-          className="search-icon"
-          style={{ marginTop: "-14px" }}
-          src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/68a00396345c18200df4a5b3_%F0%9F%94%8D.webp"
-          alt="search-icon"
-        />
-        Live-Simulator: So viele Sterne hättest du ohne Hater.
-      </h3>
+    <>
+      {/* Google Places Script (ENV-Key erforderlich) */}
+      <Script
+        src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`}
+        strategy="afterInteractive"
+        onLoad={initPlaces}
+      />
 
-      <div className="review-card">
-        <div className="input-wrapper" style={{ position: "relative", display: "inline-block", width: "100%" }}>
-          <input
-            className="search-box"
-            id="company-input"
-            type="text"
-            placeholder='Dein Unternehmen suchen... – z.B. "Restaurant XY"'
+      <div className="review-container">
+        <h3 className="section-title">
+          <img
+            className="search-icon"
+            style={{ marginTop: "-14px" }}
+            src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/68a00396345c18200df4a5b3_%F0%9F%94%8D.webp"
+            alt="search-icon"
           />
-          <p id="search-hint" className="search-hint">
-            🚀 Probier’s aus: Such dein Unternehmen und sieh selbst, was passiert.
-          </p>
-          <div id="review-output" className="loading-text"></div>
-          <div id="simulator" className="simulator-wrapper"></div>
-          <div
-            id="input-loader"
-            style={{
-              position: "absolute",
-              top: "50%",
-              right: 12,
-              transform: "translateY(-50%)",
-              width: 18,
-              height: 18,
-              border: "2px solid #ccc",
-              borderTop: "2px solid #4caf50",
-              borderRadius: "50%",
-              animation: "spin 0.8s linear infinite",
-              display: "none"
-            }}
-          />
+          Live-Simulator: So viele Sterne hättest du ohne Hater.
+        </h3>
+
+        <div className="review-card">
+          <div className="input-wrapper" style={{ position: "relative", display: "block", width: "100%" }}>
+            <input
+              className="search-box"
+              id="company-input"
+              type="text"
+              placeholder='Dein Unternehmen suchen... – z.B. "Restaurant XY"'
+            />
+            <p id="search-hint" className="search-hint">
+              🚀 Probier’s aus: Such dein Unternehmen und sieh selbst, was passiert.
+            </p>
+            <div id="review-output" className="loading-text"></div>
+            <div id="simulator" className="simulator-wrapper"></div>
+            <div
+              id="input-loader"
+              style={{
+                position: "absolute",
+                top: "50%",
+                right: 12,
+                transform: "translateY(-50%)",
+                width: 18,
+                height: 18,
+                border: "2px solid #ccc",
+                borderTop: "2px solid #4caf50",
+                borderRadius: "50%",
+                animation: "spin 0.8s linear infinite",
+                display: "none"
+              }}
+            />
+          </div>
         </div>
       </div>
 
-      {/* --- Dein CSS 1:1 global --- */}
+      {/* Dein CSS 1:1 – plus Mobile-Fixes für das Input-Feld */}
       <style jsx global>{`
         @keyframes shake{0%{transform:translateX(0)}5%{transform:translateX(-8px)}10%{transform:translateX(8px)}15%{transform:translateX(-8px)}20%{transform:translateX(8px)}25%{transform:translateX(0)}100%{transform:translateX(0)}}
         .shake{animation:shake 1.5s ease-in-out infinite;opacity:1!important}
@@ -63,8 +110,19 @@ export default function LiveSimulator() {
         .search-hint{font-family:'Poppins',sans-serif;font-size:14px;line-height:1.45;text-align:center;color:rgba(1,1,1,.78);margin-top:8px}
         @media (max-width:479px){.search-hint{font-size:13px;margin-top:6px}}
         .section-title{max-width:975px;font-family:'Outfit',sans-serif;color:#010101;font-weight:400!important;margin:0 auto;font-size:48px;line-height:120%;text-align:center}
-        .review-card{max-width:755px;margin:40px auto 0;padding:40px;border-radius:8px;background:#fff}
-        .search-box{width:100%;max-width:675px;padding:9px 20px;border:1px solid rgba(1,1,1,0.1);border-radius:8px;font-family:Poppins;font-size:18px;line-height:150%;outline:none}
+        .review-card{max-width:755px;margin:40px auto 0;padding:40px;border-radius:8px;background:#fff;box-sizing:border-box}
+        .search-box{
+          width:100%;
+          max-width:100% !important;   /* 🔒 nie breiter als die Karte */
+          padding:9px 20px;
+          border:1px solid rgba(1,1,1,0.1);
+          border-radius:8px;
+          font-family:Poppins;
+          font-size:18px;
+          line-height:150%;
+          outline:none;
+          box-sizing:border-box;       /* 🔒 inklusive Padding */
+        }
         .search-box:focus{border-color:#49a84c}
         .search-box::placeholder{color:#878686}
         @keyframes breathe{0%{transform:scale(0.985);box-shadow:0 0 0 rgba(73,168,76,0)}50%{transform:scale(1);box-shadow:0 10px 28px rgba(73,168,76,0.18)}100%{transform:scale(0.985);box-shadow:0 0 0 rgba(73,168,76,0)}}
@@ -110,14 +168,23 @@ export default function LiveSimulator() {
         .jetxt-button-review{display:inline-flex;align-items:center;justify-content:center;gap:10px;background:linear-gradient(90deg,#000,#333);color:#fff;font-size:16px;font-weight:500;padding:11px 7px;border:none;min-width:172px;border-radius:30px;cursor:pointer;transition:all .3s ease}
         .jetxt-button-review:hover{background:linear-gradient(90deg,#444,#000);border:1px solid #000}
         .rating-container{display:flex;align-items:center;gap:8px;width:100%;justify-content:center;font-family:'Outfit',sans-serif;font-weight:600;font-size:24px;margin-top:14px}
-        .red-text{color:#E1432E}
-        .green-text{color:#49A84C}
+        .red-text{color:#E1432E}.green-text{color:#49A84C}
         @media (max-width:991px){.review-container{padding:70px 10px}.section-title{max-width:550px;font-size:40px}.rating-card{height:auto}}
-        @media (max-width:767px){.remove-unlimited-3{padding:8px}.remove-unlimited-p-2{font-size:14px}.note-text{font-size:12px}.search-box{font-size:16px}.option-sub{font-size:14px}.review-container{padding:50px 10px}.section-title{font-size:36px}.review-card{margin-top:24px;padding:30px 10px}.review-row{gap:12px}.review-row.stack{flex-direction:column}.rating-chip{font-size:12px;padding:6px}.rating-card{max-width:270px}.delete-option{display:block;max-width:175px;padding:12px}.option-row{gap:12px;justify-content:space-between}.arrow-icon{rotate:90deg;height:85px;display:flex;align-items:center;justify-content:center}.option-title{font-size:14px}.search-icon{max-width:38px}.rating-text{font-size:14px}.jetxt-button-review{font-size:14px}.rating-text #bad-count::after{width:130%;height:18px;bottom:-4px}}
-        @media (max-width:479px){.remove-unlimited-p-2{font-size:10px}.option-sub{font-size:8px}.review-container{padding:40px 10px;border-radius:12px}.section-title{font-size:32px}.review-card{padding:20px 12px 12px}.search-box{height:46px;padding:0 12px;font-size:16px}.review-row{margin-top:12px;gap:3px}.option-sub div:first-child{font-size:12px}.rating-chip{font-size:10px;padding:3px 4px}.rating-card{max-width:273px}.card-header{height:35px}.rating-value{font-size:22px!important}.visibility-pill{padding:10px 13px;font-size:12px}.delete-option{padding:12px 7px}.option-title{font-size:10px}.star-icon{width:40px!important;height:40px}.loading-text{font-size:14px;margin-top:4px}.search-icon{max-width:28px;margin-top:-8px}.line-top{width:50%;margin:0 0 6px auto}.rating-text{justify-content:end}.option-sub div:last-child{font-size:10px}.jetxt-button-review{font-size:12px}}
+        @media (max-width:767px){
+          .review-container{padding:50px 10px}
+          .section-title{font-size:36px}
+          .review-card{margin-top:24px;padding:24px 12px} /* 🔧 weniger Padding mobil */
+          .search-box{font-size:16px}
+        }
+        @media (max-width:479px){
+          .review-container{padding:40px 10px;border-radius:12px}
+          .section-title{font-size:32px}
+          .review-card{padding:20px 12px 12px}
+          .search-box{height:46px;padding:0 12px;font-size:16px;max-width:100% !important}
+        }
         @media (min-width:992px){.rating-text #bad-count::after{bottom:0px;height:14px;width:120%}.rating-block{margin-bottom:22px}}
         @keyframes spin{0%{transform:translateY(-50%) rotate(0deg)}100%{transform:translateY(-50%) rotate(360deg)}}
       `}</style>
-    </div>
+    </>
   );
 }
