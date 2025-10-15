@@ -14,7 +14,11 @@ export default function DashboardPage() {
     const onPlace = (e) => {
       // hier kommt Name/Adresse vom Autocomplete
       const { name = "", address = "" } = e.detail || {};
-      setPrefill({ google_profile_url: \`\${name} \${address}\`.trim(), name, address });
+      setPrefill({
+  google_profile_url: `${name} ${address}`.trim(),
+  name,
+  address,
+});
     };
     const onStart = () => {
       // Klick auf "Jetzt loslegen" im Simulator
