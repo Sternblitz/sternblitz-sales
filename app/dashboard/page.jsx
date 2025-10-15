@@ -1,47 +1,112 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { useEffect, useRef, useState } from "react";
 import LiveSimulator from "@/components/LiveSimulator";
+import NewOrderStarter from "@/components/NewOrderStarter";
 
+/**
+ * Dashboard mit:
+ *  - LiveSimulator oben (Google Places + Review-Simulation)
+ *  - CTA "Jetzt loslegen" im Simulator speichert das gewählte Profil
+ *  - Formular "NewOrderStarter" wird mit den Profil-Daten vorbefüllt
+ *  - Sanfter Scroll zum Formular
+ */
 export default function DashboardPage() {
-  const [prefill, setPrefill] = useState({ google_profile_url: "", name: "", address: "" });
+  const formRef = useRef(null);
 
+  // Vorbefüllung aus dem Simulator (Firma/Adresse/ggf. URL)
+  const [prefill, setPrefill] = useState({
+    name: "",
+    address: "",
+    google_profile_url: "",
+  });
+
+  // Hilfsfunktion: sanft zum Formular scrollen
+  const scrollToForm = () => {
+    if (formRef.current) {
+      formRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  // Beim ersten Render: sessionStorage lesen (falls der User z.B. neu lädt)
   useEffect(() => {
-    const onType = () => {
-      const v = document.getElementById("company-input")?.value?.trim() || "";
-      setPrefill(p => ({ ...p, google_profile_url: v }));
-    };
-    const onPlace = (e) => {
-      const name = e?.detail?.name || "";
-      const address = e?.detail?.address || "";
-      setPrefill({ google_profile_url: [name, address].filter(Boolean).join(" "), name, address });
-    };
-    const onStart = () => {
-      // hier später Formular öffnen / scrollen
-      // document.getElementById("order-form")?.scrollIntoView({ behavior: "smooth" });
-    };
-
-    const input = document.getElementById("company-input");
-    input?.addEventListener("input", onType);
-    window.addEventListener("sb:place-selected", onPlace);
-    window.addEventListener("sb:start-order", onStart);
-
-    onType(); // initial
-
-    return () => {
-      input?.removeEventListener("input", onType);
-      window.removeEventListener("sb:place-selected", onPlace);
-      window.removeEventListener("sb:start-order", onStart);
-    };
+    try {
+      const saved =
+        typeof window !== "undefined"
+          ? JSON.parse(sessionStorage.getItem("sb_selected_profile") || "null")
+          : null;
+      if (saved?.name) {
+        setPrefill({
+          name: saved.name || "",
+          address: saved.address || "",
+          google_profile_url: [saved.name || "", saved.address || ""]
+            .filter(Boolean)
+            .join(" ")
+            .trim(),
+        });
+      }
+    } catch {
+      // still bleiben, wenn sessionStorage leer/ungültig
+    }
   }, []);
 
+  // Globales Event vom Simulator entgegennehmen
+  useEffect(() => {
+    const handler = (e) => {
+      const { name = "", address = "", url = "" } = e.detail || {};
+      setPrefill({
+        name,
+        address,
+        google_profile_url: [name, address].filter(Boolean).join(" ").trim() || url || "",
+      });
+      // Formular in Sicht bringen
+      scrollToForm();
+    };
+    window.addEventListener("sb:simulator-start", handler);
+    return () => window.removeEventListener("sb:simulator-start", handler);
+  }, []);
+
+  // Direkter Callback aus der Komponente (wird parallel zum Event genutzt)
+  const handleSimulatorStart = ({ name = "", address = "", url = "" }) => {
+    setPrefill({
+      name,
+      address,
+      google_profile_url: [name, address].filter(Boolean).join(" ").trim() || url || "",
+    });
+    scrollToForm();
+  };
+
   return (
-    <main style={{ minHeight: "100vh", padding: 12 }}>
-      <div style={{ maxWidth: 1207, margin: "0 auto" }}>
-        <LiveSimulator />
-        {/* <div id="order-form" style={{ maxWidth: 755, margin: "16px auto 0" }}>
-          ...hier kommt als Nächstes dein Auftrags-Formular...
-        </div> */}
-      </div>
+    <main className="sb-dashboard-wrap">
+      {/* Live-Simulator oben */}
+      <LiveSimulator onStart={handleSimulatorStart} />
+
+      {/* Formularbereich */}
+      <section ref={formRef} id="order-form" className="sb-form-section">
+        <NewOrderStarter prefill={prefill} />
+      </section>
+
+      {/* Basale Styles für Abstände/Responsiveness (keine Brand-Änderungen) */}
+      <style jsx>{`
+        .sb-dashboard-wrap {
+          width: 100%;
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 16px;
+        }
+        .sb-form-section {
+          margin-top: 32px;
+          padding-bottom: 48px;
+        }
+        @media (max-width: 768px) {
+          .sb-dashboard-wrap {
+            padding: 12px;
+          }
+          .sb-form-section {
+            margin-top: 24px;
+          }
+        }
+      `}</style>
     </main>
   );
 }
