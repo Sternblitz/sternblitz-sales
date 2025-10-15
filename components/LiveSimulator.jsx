@@ -3,31 +3,50 @@
 import { useEffect, useRef, useState } from "react";
 import Script from "next/script";
 
-export default function LiveSimulator() {
+/**
+ * LiveSimulator
+ * - Google Places Autocomplete (einmalig, stabil)
+ * - ENTER ODER Auswahl im Dropdown startet Fetch
+ * - Countdown "Lade Bewertungen… 4,3,2,1"
+ * - Rendering 1:1 an Webflow-Optik angelehnt
+ * - Unten: "Jetzt loslegen" statt "Jetzt prüfen"
+ * - Merkt das Profil in sessionStorage ("sb_selected_profile")
+ * - Optionaler Callback: onStart({name,address,url})
+ */
+export default function LiveSimulator({ onStart }) {
   const inputRef = useRef(null);
   const [loadingText, setLoadingText] = useState("");
-  const [data, setData] = useState(null);
+  const [data, setData] = useState(null); // { averageRating, totalReviews, breakdown }
   const [error, setError] = useState("");
+  const [selected, setSelected] = useState(null); // { name, address, url? }
 
-  // Google Places initialisieren – genau einmal
+  // ---------- Google Places ----------
   const onGoogleLoad = () => {
     try {
       const g = window.google;
       if (!g?.maps?.places || !inputRef.current) return;
+
       const ac = new g.maps.places.Autocomplete(inputRef.current, {
         types: ["establishment"],
-        fields: ["name", "formatted_address"],
+        fields: ["name", "formatted_address", "url", "place_id"],
       });
+
       ac.addListener("place_changed", () => {
         const place = ac.getPlace();
         if (!place?.name) return;
-        fetchReviews(place.name, place.formatted_address || "");
+        const name = place.name || "";
+        const address = place.formatted_address || "";
+        const url = place.url || "";
+        setSelected({ name, address, url });
+        inputRef.current.value = `${name}${address ? ", " + address : ""}`;
+        runFetch(name, address);
       });
     } catch (e) {
       console.error("Autocomplete init error:", e);
     }
   };
 
+  // ---------- Fetch & Countdown ----------
   const startCountdown = (secs = 4) => {
     let n = secs;
     setLoadingText(`Lade Bewertungen… ${n}`);
@@ -39,7 +58,7 @@ export default function LiveSimulator() {
     return () => clearInterval(id);
   };
 
-  const fetchReviews = async (name, address) => {
+  const runFetch = async (name, address) => {
     setError("");
     setData(null);
     const stop = startCountdown(4);
@@ -48,11 +67,15 @@ export default function LiveSimulator() {
         `/api/reviews?name=${encodeURIComponent(name)}&address=${encodeURIComponent(address)}`,
         { cache: "no-store" }
       );
-      const json = await res.json();
+      const json = await res.json().catch(() => null);
       stop();
       setLoadingText("");
-      setData(json && typeof json === "object" ? json : null);
-      if (!json) setError("Leere Antwort vom Server.");
+      if (!json) throw new Error("Leere Antwort");
+      setData({
+        averageRating: typeof json.averageRating === "number" ? json.averageRating : 4.1,
+        totalReviews: typeof json.totalReviews === "number" ? json.totalReviews : 250,
+        breakdown: json.breakdown || { 1: 10, 2: 20, 3: 30, 4: 90, 5: 100 },
+      });
     } catch (e) {
       stop();
       setLoadingText("");
@@ -60,7 +83,8 @@ export default function LiveSimulator() {
     }
   };
 
-  const onEnter = (e) => {
+  // ENTER startet Suche
+  const onKeyDown = (e) => {
     if (e.key !== "Enter") return;
     e.preventDefault();
     const raw = inputRef.current?.value || "";
@@ -68,48 +92,83 @@ export default function LiveSimulator() {
     const parts = raw.split(",");
     const name = (parts.shift() || "").trim();
     const address = parts.join(",").trim();
-    fetchReviews(name, address);
+    setSelected({ name, address, url: "" });
+    runFetch(name, address);
   };
 
-  // Demo-Renderer – identisch wie zuvor (gekürzt)
-  const View = () => {
-    if (!data) return null;
-    const fmt1 = (n) =>
-      Number(n).toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  // ---------- CTA: Jetzt loslegen ----------
+  const handleStart = () => {
+    if (!selected) return;
+    // Profil merken – fürs Formular
+    sessionStorage.setItem("sb_selected_profile", JSON.stringify(selected));
+    // Event an Parent (optional)
+    onStart?.(selected);
+    // Zusätzlich Broadcast (falls Parent per Window hört)
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("sb:simulator-start", { detail: selected }));
+    }
+  };
 
-    const avg = data.averageRating ?? 4.1;
-    const total = data.totalReviews ?? 250;
-    const breakdown = data.breakdown ?? { 1: 10, 2: 20, 3: 30, 4: 90, 5: 100 };
+  // ---------- UI Helpers ----------
+  const fmt1 = (n) =>
+    Number(n).toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+  const computeCurrentVisibility = (rating) => {
+    if (rating >= 4.8) return 0;
+    if (rating >= 4.2) {
+      const norm = (4.8 - rating) / 0.6;
+      return -Math.round(170 * Math.sqrt(norm));
+    }
+    const below = Math.round((4.0 - rating) * 10);
+    return -170 - below * 3;
+  };
+  const computeImprovementVisibility = (oldRating, newRating) => {
+    if (newRating <= oldRating) return 0;
+    const possible = 5 - oldRating;
+    if (possible <= 0) return 0;
+    const frac = (newRating - oldRating) / possible;
+    return Math.min(200, Math.round(frac * 200));
+  };
+
+  // ---------- Render-Teil ----------
+  const Cards = () => {
+    if (!data) return null;
+    const { averageRating: avg, totalReviews: total, breakdown } = data;
     const badCount = (breakdown[1] || 0) + (breakdown[2] || 0) + (breakdown[3] || 0);
+    const curVis = computeCurrentVisibility(avg);
 
     const apply = (removeArr) => {
       const kept = { ...breakdown };
       removeArr.forEach((s) => (kept[s] = 0));
-      const removed = removeArr.reduce((s, x) => s + (breakdown[x] || 0), 0);
+      const removed = removeArr.reduce((sum, s) => sum + (breakdown[s] || 0), 0);
       const newTotal = Math.max(0, total - removed) || 1;
       const newSum = [1, 2, 3, 4, 5].reduce((a, s) => a + s * (kept[s] || 0), 0);
       const newAvg = newSum / newTotal;
       return { newTotal, newAvg };
     };
+
     const opt123 = apply([1, 2, 3]);
 
     return (
       <>
+        {/* Chips 5..1 */}
         <div className="review-row">
           {[5, 4, 3, 2, 1].map((s) => {
+            const count = Number(breakdown[s] || 0).toLocaleString();
             const cls = s >= 4 ? "rating-chip positive-chip" : "rating-chip negative-chip";
             return (
-              <div className={cls} key={s}>
-                {s} ⭐ <span>{Number(breakdown[s] || 0).toLocaleString()}</span>
+              <div key={s} className={cls}>
+                {s} ⭐ <span>{count}</span>
               </div>
             );
           })}
         </div>
 
+        {/* 1–3 Sterne Block */}
         <div className="rating-block">
           <img
             src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689f5500b57e679a1940c168_bracket-img.webp"
-            alt=""
+            alt="curve line"
             className="line-top"
           />
           <div className="rating-text">
@@ -121,46 +180,62 @@ export default function LiveSimulator() {
           </div>
         </div>
 
+        {/* Karten */}
         <div className="review-row stack" style={{ alignItems: "flex-center" }}>
           <div className="rating-card">
-            <div className="card-header header-current">AKTUELL</div>
+            <div className="card-header header-current"><span>AKTUELL</span></div>
             <div className="card-body">
-              <img
-                className="star-icon"
-                style={{ width: "100%", maxWidth: 48 }}
-                src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689f5709ae0db7541734c589_red-cross.webp"
-                alt=""
-              />
+              <img className="star-icon" style={{ width: "100%", maxWidth: 48 }}
+                   src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689f5709ae0db7541734c589_red-cross.webp" alt="Sterne" />
               <div className="before-after-text">
-                <h2 className="rating-value" style={{ margin: 0 }}>
-                  {fmt1(avg)} ⭐
-                </h2>
-                <p className="review-count" style={{ margin: 0 }}>
-                  {total.toLocaleString()} Bewertungen
-                </p>
+                <h2 className="rating-value" style={{ margin: 0 }}>{fmt1(avg)} ⭐</h2>
+                <p className="review-count" style={{ margin: 0 }}>{total.toLocaleString()} Bewertungen</p>
               </div>
             </div>
+            <p className="visibility-pill"><span style={{ fontWeight: 700 }}>{curVis}%</span> Online-Sichtbarkeit</p>
+          </div>
+
+          <div className="arrow-icon" style={{ fontSize: 28, fontWeight: 700, margin: "0 6px" }}>
+            <img src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689ec12c6a1613f9c349ca46_yellow-arrow.avif" alt="→" />
           </div>
 
           <div className="rating-card">
-            <div className="card-header header-after">NACH LÖSCHUNG</div>
+            <div className="card-header header-after"><span>NACH LÖSCHUNG</span></div>
             <div className="card-body">
-              <img
-                className="star-icon"
-                style={{ width: "100%", maxWidth: 48 }}
-                src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689f5706192ab7698165e044_green-light.webp"
-                alt=""
-              />
+              <img className="star-icon" style={{ width: "100%", maxWidth: 48 }}
+                   src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689f5706192ab7698165e044_green-light.webp" alt="Sterne" />
               <div className="before-after-text">
-                <h2 className="rating-value shake" style={{ margin: 0 }}>
-                  ⚡ ⭐ {fmt1(opt123.newAvg)}
-                </h2>
-                <p className="review-count" style={{ margin: 0 }}>
-                  {opt123.newTotal.toLocaleString()} Bewertungen
-                </p>
+                <h2 className="rating-value shake" style={{ margin: 0 }}>⚡ ⭐ {fmt1(opt123.newAvg)}</h2>
+                <p className="review-count" style={{ margin: 0 }}>{opt123.newTotal.toLocaleString()} Bewertungen</p>
               </div>
             </div>
+            <p className="visibility-pill visibility-green" id="vis-new">
+              <span style={{ fontWeight: 700 }}>
+                +{computeImprovementVisibility(avg, opt123.newAvg)}%
+              </span> Online-Sichtbarkeit
+            </p>
           </div>
+        </div>
+
+        {/* CTA unten – ersetzt "Jetzt prüfen" */}
+        <div className="remove-unlimited-3">
+          <p className="remove-unlimited-p-2">
+            Lösche <span className="text-span-18">ALLE</span> schlechten Bewertungen für{" "}
+            <span className="green-number-2">€299</span>
+          </p>
+          <button
+            className="black-white-btn-small jetxt-button-review black-white-btn-mid"
+            onClick={handleStart}
+            disabled={!selected}
+            title={!selected ? "Bitte erst ein Unternehmen auswählen" : "Jetzt loslegen"}
+          >
+            <span className="jetxt-btn">Jetzt loslegen</span>
+          </button>
+          {!selected && (
+            <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>
+              Tipp: Unternehmen oben auswählen, dann aktivieren wir den Button.
+            </div>
+          )}
         </div>
       </>
     );
@@ -168,6 +243,7 @@ export default function LiveSimulator() {
 
   return (
     <>
+      {/* Google Places – einmalig laden */}
       <Script
         src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`}
         strategy="afterInteractive"
@@ -180,56 +256,93 @@ export default function LiveSimulator() {
             className="search-icon"
             style={{ marginTop: "-14px" }}
             src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/68a00396345c18200df4a5b3_%F0%9F%94%8D.webp"
-            alt=""
+            alt="search-icon"
           />
           Live-Simulator: So viele Sterne hättest du ohne Hater.
         </h3>
 
         <div className="review-card">
-          <div className="input-wrap">
+          <div className="input-wrapper" style={{ position: "relative", display: "block", width: "100%" }}>
             <input
               ref={inputRef}
               id="company-input"
               type="search"
               inputMode="search"
               placeholder='Dein Unternehmen suchen... – z.B. "Restaurant XY"'
-              className="search-box"
+              className="search-box attention"
               autoComplete="off"
-              onKeyDown={onEnter}
+              onKeyDown={onKeyDown}
             />
-            <button className="jetzt-pruefen" onClick={onEnter}>
-              Jetzt prüfen
-            </button>
-          </div>
+            <p id="search-hint" className="search-hint">
+              🚀 Probier’s aus: Such dein Unternehmen und sieh selbst, was passiert.
+            </p>
 
-          {loadingText && <div className="loading-text">{loadingText}</div>}
-          {error && !loadingText && (
-            <div className="loading-text" style={{ color: "#E1432E" }}>
-              {error}
-            </div>
-          )}
-          {!loadingText && <div id="simulator" className="simulator-wrapper">{data && <View />}</div>}
+            {loadingText && <div id="review-output" className="loading-text">{loadingText}</div>}
+            {error && !loadingText && (
+              <div className="loading-text" style={{ color: "#E1432E" }}>{error}</div>
+            )}
+            {!loadingText && data && <div id="simulator" className="simulator-wrapper"><Cards /></div>}
+          </div>
         </div>
       </div>
 
-      {/* ✅ Mobile-sichere Breiten & Box-Sizing */}
+      {/* ======= Styles: orientiert am Webflow-Original & fully responsive ======= */}
       <style jsx global>{`
-        .input-wrap{position:relative;display:block;width:100%}
-        .search-box{
-          width:100%;max-width:100%;
-          padding:10px 14px;border:1px solid rgba(1,1,1,.1);border-radius:8px;
-          font-family:Poppins;font-size:18px;line-height:1.4;outline:none;
-          box-sizing:border-box;
-        }
-        .jetzt-pruefen{
-          margin-top:10px;display:inline-flex;gap:8px;align-items:center;
-          border-radius:30px;padding:10px 16px;border:1px solid #ddd;cursor:pointer;
-          background:linear-gradient(90deg,#000,#333);color:#fff;font-weight:600;
+        .review-container{font-family:'Poppins',sans-serif;max-width:1207px;margin:auto;padding:80px 10px;border-radius:16px;background:url("https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689acdb9f72cb41186204eda_stars-rating.webp") center/cover no-repeat}
+        .section-title{max-width:975px;font-family:'Outfit',sans-serif;color:#010101;font-weight:400!important;margin:0 auto;font-size:48px;line-height:120%;text-align:center}
+        .review-card{max-width:755px;margin:40px auto 0;padding:40px;border-radius:8px;background:#fff}
+        .search-box{width:100%;max-width:675px;padding:9px 20px;border:1px solid rgba(1,1,1,.1);border-radius:8px;font-family:Poppins;font-size:18px;line-height:150%;outline:none;box-sizing:border-box}
+        .search-box:focus{border-color:#49a84c} .search-box.attention{animation:breathe 2.2s ease-in-out infinite}
+        @keyframes breathe{0%{transform:scale(.985);box-shadow:0 0 0 rgba(73,168,76,0)}50%{transform:scale(1);box-shadow:0 10px 28px rgba(73,168,76,.18)}100%{transform:scale(.985);box-shadow:0 0 0 rgba(73,168,76,0)}}
+        .search-hint{font-family:Poppins,sans-serif;font-size:14px;line-height:1.45;text-align:center;color:rgba(1,1,1,.78);margin-top:8px}
+        .loading-text{color:#010101;margin-top:8px;font-size:18px;font-weight:600;text-align:center}
+
+        .review-row{display:flex;align-items:center;width:100%;max-width:675px;margin:24px auto 0;justify-content:space-between;gap:31px}
+        .rating-chip{height:100%;text-align:center;padding:8px 12px;border-radius:6px;font-size:15px;font-weight:600;white-space:nowrap}
+        .positive-chip{background-color:#49A84C1F;color:#49A84C} .negative-chip{background-color:#E1432E1F;color:#FF473F}
+
+        .rating-card{overflow:hidden;width:100%;height:174px;max-width:274px;border:1px solid rgba(225,67,46,.12);border-radius:8px}
+        .card-header{display:flex;justify-content:center;align-items:center;height:42px;font-size:20px;font-family:Poppins;font-weight:500;color:#fff}
+        .header-current{background-color:#E0422F} .header-after{background-color:#49A84C}
+        .card-body{display:flex;align-items:center;width:100%;padding:14px;gap:15px}
+        .review-count{font-family:Poppins;color:rgba(1,1,1,.7);font-size:14px;font-weight:300;line-height:120%}
+        .rating-value{margin:0;opacity:.6;font-family:'Outfit',sans-serif;color:#010101;font-size:27px!important;font-weight:600;line-height:100%}
+        .visibility-pill{margin:6px 20px 13px 14px;width:100%;max-width:238px;padding:8px 16px;border-radius:69px;background:rgba(255,71,63,.12);font-family:Outfit;color:#FF473F;font-size:14px;line-height:100%}
+        .visibility-green{background:#E8F5E9!important;color:#49A84C!important}
+
+        .rating-block{text-align:center;display:flex;flex-direction:column;width:100%;max-width:341px;margin-left:auto;justify-content:end;position:relative;margin-bottom:20px;z-index:2}
+        .line-top{width:100%;display:block;margin:0 auto 6px}
+        .rating-text{font-family:Outfit,sans-serif;color:#e13121;display:flex;align-items:baseline;justify-content:center;gap:6px;font-size:19px;font-weight:600;line-height:1}
+        .rating-text .text,.rating-text #bad-count{font-size:21px;font-weight:800;color:#e13121;display:inline-block;line-height:1}
+        .rating-text .icon,.rating-text .close{font-size:16px;color:#FF473F;display:inline-block;line-height:1}
+
+        .remove-unlimited-3{background:#ebf7ee;padding:30px 20px;text-align:center;border-radius:16px;margin:20px auto;max-width:700px}
+        .remove-unlimited-p-2{font-family:Poppins;color:#010101;font-size:16px;line-height:100%}
+        .text-span-18{font-weight:700;color:#000} .green-number-2{color:#16a34a;font-weight:700}
+        .jetxt-button-review{display:inline-flex;align-items:center;justify-content:center;gap:10px;background:linear-gradient(90deg,#000,#333);color:#fff;font-size:16px;font-weight:500;padding:11px 16px;border:none;min-width:200px;border-radius:30px;cursor:pointer;transition:all .3s}
+        .black-white-btn-mid{background:linear-gradient(103.09deg,#676767 -0.61%,#010101 71.09%);border-right:1px solid #000000d6!important;border-left:1px solid #595959!important;box-shadow:-1px 4px 4px 0px #00000040}
+        .black-white-btn-mid:hover{background:linear-gradient(103.09deg,#ffffff,#cccccc);color:#000}
+
+        /* ---------- Responsive ---------- */
+        @media (max-width:991px){.review-container{padding:70px 10px}.section-title{max-width:550px;font-size:40px}}
+        @media (max-width:767px){
+          .review-container{padding:50px 10px}
+          .section-title{font-size:36px}
+          .review-card{margin-top:24px;padding:24px 12px}
+          .review-row{gap:12px}
+          .review-row.stack{flex-direction:column}
+          .search-box{font-size:16px;max-width:100%}
         }
         @media (max-width:479px){
-          .review-card{padding:16px 12px}
-          .search-box{font-size:16px;height:46px}
-          .jetzt-pruefen{width:100%;justify-content:center}
+          .review-container{padding:40px 10px;border-radius:12px}
+          .section-title{font-size:32px}
+          .review-card{padding:20px 12px 12px}
+          .search-box{height:46px;padding:0 12px;font-size:16px;max-width:100%}
+          .rating-chip{font-size:10px;padding:3px 7px}
+          .rating-card{max-width:273px}
+          .card-header{height:35px}
+          .rating-value{font-size:22px!important}
+          .visibility-pill{padding:10px 13px;font-size:12px}
         }
       `}</style>
     </>
