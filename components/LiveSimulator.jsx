@@ -393,90 +393,94 @@ export default function LiveSimulator() {
           .delete-option{max-width:175px;padding:12px}
           .option-title{font-size:16px}
         }
-        /* --- Bracket + underline (Pfeil) pixel-perfect like Webflow --- */
-.rating-block{
+       /* --- Bracket/Arrow rechtsbündig unter 1–3 Sterne wie im Webflow-Design --- */
+.rating-block {
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-end; /* wichtig: nach rechts ausrichten */
   width: 100%;
-  max-width: 360px;            /* keeps it compact like Webflow */
-  margin: 18px auto 22px;      /* top & bottom spacing tuned */
+  max-width: 675px; /* gleich wie review-row Breite */
+  margin: 12px auto 20px auto;
+  padding-right: 24px; /* Abstand nach rechts, Feintuning */
   z-index: 2;
 }
 
-.line-top{
+.line-top {
   display: block;
-  width: 64%;
-  max-width: 240px;
-  margin: 0 auto 8px;          /* small gap to the text row */
-  height: auto;                /* preserve aspect */
+  width: 38%; /* deckt die letzten 3 Sterne ab */
+  max-width: 260px;
+  margin-right: 12px;
+  margin-bottom: 6px;
+  height: auto;
+  object-fit: contain;
 }
 
-.rating-text{
+.rating-text {
   display: flex;
   align-items: baseline;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 6px;
   font-family: 'Outfit', sans-serif;
   color: #e13121;
   font-size: 19px;
   font-weight: 600;
   line-height: 1;
-  position: relative;
+  margin-right: 12px;
 }
 
-/* The underlining “arrow/stripe” under the count */
-#bad-count{
+.rating-text .text,
+#bad-count {
+  font-size: 21px;
+  font-weight: 800;
+  color: #e13121;
+  line-height: 1;
+}
+
+.rating-text .icon,
+.rating-text .close {
+  font-size: 16px;
+  color: #FF473F;
+  line-height: 1;
+}
+
+/* Unterstreichung direkt unter den Zahlen (wie im Webflow) */
+#bad-count {
   position: relative;
   display: inline-block;
-  font-weight: 800;
-  line-height: 0.95;
-  padding-bottom: 14px;         /* room for the underline graphic */
-  z-index: 3;
+  padding-bottom: 12px;
 }
 
-#bad-count::after{
+#bad-count::after {
   content: "";
   position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: 0;                    /* sits snug under the digits */
-  width: 128%;
-  height: 16px;
-  background: url("https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/68a03d044d9deabf71840200_line.svg") no-repeat center/contain;
+  right: 0; /* rechtsbündig */
+  bottom: 0;
+  width: 160%;
+  height: 18px;
+  background: url("https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689f5500b57e679a1940c168_bracket-img.webp")
+    no-repeat right/contain;
   pointer-events: none;
-  z-index: 2;
 }
 
-/* ---- Tablet tweaks ---- */
-@media (max-width: 991px){
-  .rating-block{ max-width: 340px; margin-bottom: 22px; }
-  .line-top{ width: 62%; max-width: 230px; margin-bottom: 7px; }
-  #bad-count{ padding-bottom: 15px; }
-  #bad-count::after{ width: 132%; height: 17px; bottom: 0; }
+/* ---- Responsive ---- */
+@media (max-width: 991px) {
+  .line-top { width: 42%; max-width: 230px; }
 }
 
-/* ---- Mobile (<= 767) ---- */
-@media (max-width: 767px){
-  .rating-block{ max-width: 320px; margin-bottom: 20px; }
-  .line-top{ width: 58%; max-width: 210px; margin-bottom: 6px; }
-  .rating-text{ font-size: 18px; }
-  #bad-count{ padding-bottom: 16px; }
-  #bad-count::after{ width: 136%; height: 18px; bottom: -2px; }
+@media (max-width: 767px) {
+  .rating-block { padding-right: 10px; margin-bottom: 16px; }
+  .line-top { width: 46%; max-width: 200px; margin-right: 8px; }
+  .rating-text { font-size: 18px; margin-right: 8px; }
+  #bad-count::after { width: 150%; height: 16px; }
 }
 
-/* ---- Small phones (<= 479) ---- */
-@media (max-width: 479px){
-  .rating-block{ max-width: 300px; margin-bottom: 18px; }
-  .line-top{ width: 54%; max-width: 190px; margin-bottom: 5px; }
-  .rating-text{ font-size: 16px; }
-  #bad-count{ padding-bottom: 18px; }
-  #bad-count::after{ width: 140%; height: 19px; bottom: -3px; }
+@media (max-width: 479px) {
+  .rating-block { padding-right: 4px; margin-bottom: 14px; }
+  .line-top { width: 50%; max-width: 180px; }
+  .rating-text { font-size: 16px; }
+  #bad-count::after { width: 140%; height: 15px; }
 }
-
-/* Optional: hide any old bottom line if present */
-.line-bottom{ display: none !important; }
       `}</style>
     </>
   );
