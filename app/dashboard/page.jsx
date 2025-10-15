@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import LiveSimulator from "@/components/LiveSimulator";
-import NewOrderStarter from "@/components/NewOrderStarter"; // dein Button-Komponent (Placeholder ok)
 
 export default function DashboardPage() {
   const [prefill, setPrefill] = useState({ google_profile_url: "", name: "", address: "" });
@@ -12,17 +11,13 @@ export default function DashboardPage() {
       setPrefill(p => ({ ...p, google_profile_url: v }));
     };
     const onPlace = (e) => {
-      // hier kommt Name/Adresse vom Autocomplete
-      const { name = "", address = "" } = e.detail || {};
-      setPrefill({
-  google_profile_url: `${name} ${address}`.trim(),
-  name,
-  address,
-});
+      const name = e?.detail?.name || "";
+      const address = e?.detail?.address || "";
+      setPrefill({ google_profile_url: [name, address].filter(Boolean).join(" "), name, address });
     };
     const onStart = () => {
-      // Klick auf "Jetzt loslegen" im Simulator
-      document.getElementById("sb-neworder-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      // hier später Formular öffnen / scrollen
+      // document.getElementById("order-form")?.scrollIntoView({ behavior: "smooth" });
     };
 
     const input = document.getElementById("company-input");
@@ -43,10 +38,9 @@ export default function DashboardPage() {
     <main style={{ minHeight: "100vh", padding: 12 }}>
       <div style={{ maxWidth: 1207, margin: "0 auto" }}>
         <LiveSimulator />
-
-        <div id="sb-neworder-anchor" style={{ maxWidth: 755, margin: "16px auto 0", background:"#fff", padding:16, borderRadius:16, boxShadow:"0 4px 16px rgba(0,0,0,.06)" }}>
-          <NewOrderStarter prefill={prefill} />
-        </div>
+        {/* <div id="order-form" style={{ maxWidth: 755, margin: "16px auto 0" }}>
+          ...hier kommt als Nächstes dein Auftrags-Formular...
+        </div> */}
       </div>
     </main>
   );
