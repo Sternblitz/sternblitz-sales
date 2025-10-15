@@ -29,137 +29,194 @@ export default function LoginPage() {
   };
 
   return (
-    <main style={{
-      minHeight:"100vh",
-      display:"grid",
-      placeItems:"center",
-      background:"#F7FAFF",
-      padding:"20px"
-    }}>
-      <div style={{
-        width:"100%",
-        maxWidth:960,
-        display:"grid",
-        gridTemplateColumns:"1.1fr 1fr",
-        gap:24
-      }}>
-        {/* LEFT: Brand / Info */}
-        <section style={{
-          background:"#fff",
-          borderRadius:20,
-          padding:24,
-          boxShadow:"0 6px 24px rgba(0,0,0,.06)"
-        }}>
-          <div style={{
-            display:"flex",
-            alignItems:"center",
-            gap:12,
-            marginBottom:10
-          }}>
-            <img
-              src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/68ad4679902a5d278c4cf0bc_Group%202085662922-p-500.png"
-              alt="Sternblitz Logo"
-              style={{height:42, width:"auto"}}
-            />
-            <h1 style={{
-              fontSize:20,
-              fontWeight:700
-            }}>
-              Sternblitz Vertriebsplattform
-            </h1>
-          </div>
+    <main className="login-wrap">
+      <section className="login-card">
+        {/* Logo */}
+        <div className="logo-row">
+          <img
+            src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/68ad4679902a5d278c4cf0bc_Group%202085662922-p-500.png"
+            alt="Sternblitz Logo"
+            className="logo"
+          />
+          <h1 className="title">Sternblitz Vertriebsplattform</h1>
+        </div>
 
-          <ul style={{
-            margin:"12px 0 0 0",
-            paddingLeft:18,
-            color:"#374151",
-            lineHeight:1.6
-          }}>
-            <li>Live-Simulator direkt im Pitch</li>
-            <li>Digitale Kundenabschlüsse in Minuten</li>
-            <li>Pay-after-Success – 299 € Reverse-Charge</li>
-            <li>Echtzeit-Statistiken für Teamleiter</li>
-          </ul>
+        {/* Value Props (klein, untereinander) */}
+        <ul className="props">
+          <li>Live-Simulator direkt im Pitch</li>
+          <li>Digitale Abschlüsse in Minuten</li>
+          <li>Pay-after-Success — 299 € Reverse-Charge</li>
+          <li>Echtzeit-Tracking für Teamleiter</li>
+        </ul>
 
-          <p style={{
-            marginTop:16,
-            fontSize:12,
-            color:"#6b7280"
-          }}>Nur für autorisierte Sternblitz-Mitarbeiter.</p>
-        </section>
-
-        {/* RIGHT: Login */}
-        <form onSubmit={onLogin} style={{
-          background:"#fff",
-          borderRadius:20,
-          padding:24,
-          boxShadow:"0 6px 24px rgba(0,0,0,.06)"
-        }}>
-          <h2 style={{fontSize:18, fontWeight:700, marginBottom:16}}>Login</h2>
-
-          <label style={{fontSize:12, color:"#374151"}}>E-Mail</label>
+        {/* Login Formular */}
+        <form onSubmit={onLogin} className="form">
+          <label className="label">E-Mail</label>
           <input
+            className="input"
             autoComplete="email"
             placeholder="vorname@sternblitz.de"
             value={email}
             onChange={e=>setEmail(e.target.value)}
-            style={{
-              width:"100%", padding:12,
-              border:"1px solid #e5e7eb", borderRadius:12,
-              margin:"6px 0 12px"
-            }}
           />
 
-          <label style={{fontSize:12, color:"#374151"}}>Passwort</label>
-          <div style={{
-            display:"flex", gap:8, alignItems:"center", marginTop:6
-          }}>
+          <label className="label">Passwort</label>
+          <div className="pw-row">
             <input
+              className="input"
               autoComplete="current-password"
               placeholder="••••••••"
               type={showPw ? "text" : "password"}
               value={pw}
               onChange={e=>setPw(e.target.value)}
-              style={{
-                flex:1, padding:12,
-                border:"1px solid #e5e7eb", borderRadius:12
-              }}
             />
-            <button
-              type="button"
-              onClick={()=>setShowPw(s=>!s)}
-              style={{
-                padding:"10px 12px",
-                borderRadius:12,
-                border:"1px solid #e5e7eb",
-                background:"#fff",
-                cursor:"pointer"
-              }}
-            >
+            <button type="button" className="pw-toggle" onClick={()=>setShowPw(s=>!s)}>
               {showPw ? "Hide" : "Show"}
             </button>
           </div>
 
-          {err && <p style={{color:"#dc2626", marginTop:10}}>{err}</p>}
-          {ok && <p style={{color:"#065f46", marginTop:10}}>{ok}</p>}
+          {err && <p className="msg err">{err}</p>}
+          {ok && <p className="msg ok">{ok}</p>}
 
-          <button disabled={loading} style={{
-            marginTop:14,
-            width:"100%", padding:12,
-            borderRadius:12,
-            background:"#000", color:"#fff",
-            border:0, cursor:"pointer"
-          }}>
+          <button disabled={loading} className="cta">
             {loading ? "..." : "Einloggen"}
           </button>
 
-          <p style={{
-            marginTop:10, fontSize:12, color:"#6b7280"
-          }}>
-            Probleme beim Login? Wende dich an den Admin.
-          </p>
+          <p className="hint">Nur für autorisierte Sternblitz-Mitarbeiter.</p>
         </form>
-      </div>
+      </section>
+
+      {/* Styles im selben File – nutzt deine Live-Simulator Optik */}
+      <style jsx>{`
+        :global(html), :global(body) { height: 100%; }
+        .login-wrap {
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 40px 12px;
+          background: url("https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689acdb9f72cb41186204eda_stars-rating.webp")
+                      center/cover no-repeat;
+          font-family: 'Poppins', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+        }
+
+        .login-card {
+          width: 100%;
+          max-width: 720px;                 /* eine schmale Karte, wirkt edel */
+          background: #fff;
+          border-radius: 16px;
+          box-shadow: 0 6px 28px rgba(0,0,0,.10);
+          padding: 26px 20px 22px;
+        }
+
+        .logo-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          justify-content: center;
+          margin-bottom: 10px;
+        }
+        .logo { height: 46px; width: auto; }
+        .title {
+          margin: 0;
+          font-family: 'Outfit', sans-serif;
+          font-size: 22px;
+          font-weight: 600;
+          color: #010101;
+          text-align: center;
+        }
+
+        .props {
+          margin: 8px auto 18px;
+          padding: 0 16px;
+          list-style: none;
+          max-width: 540px;
+          color: rgba(1,1,1,.78);
+          font-size: 14px;
+          line-height: 1.55;
+        }
+        .props li { margin: 6px 0; text-align: center; }
+
+        .form {
+          width: 100%;
+          max-width: 520px;
+          margin: 0 auto;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .label {
+          font-size: 12px;
+          color: #374151;
+          margin-top: 8px;
+        }
+        .input {
+          width: 100%;
+          padding: 12px 14px;
+          border: 1px solid rgba(1,1,1,.10);
+          border-radius: 12px;
+          font-size: 16px;
+          outline: none;
+          transition: box-shadow .15s ease, border-color .15s ease;
+        }
+        .input:focus {
+          border-color: #49a84c;
+          box-shadow: 0 0 0 2px rgba(73,168,76,.25);
+        }
+
+        .pw-row {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+        .pw-toggle {
+          padding: 10px 12px;
+          border-radius: 12px;
+          border: 1px solid #e5e7eb;
+          background: #fff;
+          cursor: pointer;
+        }
+
+        .msg { margin: 6px 0 0; font-size: 14px; }
+        .msg.err { color: #dc2626; }
+        .msg.ok { color: #065f46; }
+
+        .cta {
+          margin-top: 14px;
+          width: 100%;
+          padding: 12px 14px;
+          border-radius: 12px;
+          background: linear-gradient(90deg, #000, #333);
+          color: #fff;
+          font-weight: 600;
+          border: 0;
+          cursor: pointer;
+          transition: filter .2s ease, transform .06s ease;
+        }
+        .cta:hover { filter: brightness(1.05); }
+        .cta:active { transform: translateY(1px); }
+
+        .hint {
+          margin-top: 10px;
+          font-size: 12px;
+          color: #6b7280;
+          text-align: center;
+        }
+
+        /* Responsive – eine Spalte bleibt erhalten, nur Abstände skalieren */
+        @media (max-width: 768px) {
+          .login-card { padding: 22px 14px 18px; }
+          .title { font-size: 20px; }
+          .logo { height: 40px; }
+          .props { font-size: 13px; }
+        }
+        @media (max-width: 480px) {
+          .login-wrap { padding: 24px 10px; }
+          .login-card { border-radius: 12px; }
+          .title { font-size: 18px; }
+          .props { font-size: 12.5px; }
+        }
+      `}</style>
     </main>
   );
 }
