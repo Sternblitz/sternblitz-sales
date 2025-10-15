@@ -319,14 +319,13 @@ export default function LiveSimulator() {
       </div>
 
       {/* ======= Styles: Webflow-Optik + Fonts + Responsiveness ======= */}
-   <style jsx global>{`
+  <style jsx global>{`
   @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap');
 
   .review-container{font-family:'Poppins',sans-serif;max-width:1207px;margin:auto;padding:80px 10px;border-radius:16px;background:url("https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689acdb9f72cb41186204eda_stars-rating.webp") center/cover no-repeat}
   .section-title{max-width:975px;font-family:'Outfit',sans-serif;color:#010101;font-weight:400!important;margin:0 auto;font-size:48px;line-height:120%;text-align:center}
   .review-card{max-width:755px;margin:40px auto 0;padding:40px;border-radius:8px;background:#fff}
 
-  /* Eingabefeld zentrieren + Breite kontrollieren */
   .input-wrapper{display:flex;justify-content:center}
   .search-box{display:block;width:100%;max-width:675px;margin:0 auto;padding:9px 20px;border:1px solid rgba(1,1,1,.1);border-radius:8px;font-family:Poppins;font-size:18px;line-height:150%;outline:none;box-sizing:border-box}
   .search-box:focus{border-color:#49a84c}
@@ -348,21 +347,21 @@ export default function LiveSimulator() {
   .review-count{font-family:Poppins;color:rgba(1,1,1,.7);font-size:14px;font-weight:300;line-height:120%}
   .rating-value{margin:0;opacity:.9;font-family:'Outfit',sans-serif;color:#010101;font-size:27px!important;font-weight:700;line-height:100%}
 
-  /* === Sichtbarkeits-Pills: kompakt, zentriert, ragen nicht raus === */
+  /* === Sichtbarkeits-Pills: zentriert, kompakt, aber dynamisch === */
   .visibility-pill{
-    display:block;                 /* volle Kontrolle über Zentrierung */
-    text-align:center;             /* Text zentrieren */
-    margin:8px auto 12px;          /* zentriert in der Karte */
-    padding:8px 16px;              /* ursprüngliche kompakte Größe */
-    border-radius:69px;            /* runde Pill-Optik */
+    display:block;
+    text-align:center;
+    margin:8px auto 12px;
+    padding:8px 16px;
+    border-radius:69px;
     background:rgba(255,71,63,.12);
     font-family:'Outfit',sans-serif;
     color:#FF473F;
     font-size:14px;
     line-height:1;
-    width:auto;                    /* keine Stretching-Breite */
-    max-width:238px;               /* begrenzt – wirkt nicht „zu breit“ */
-    white-space:nowrap;            /* einzeilig */
+    width:auto;
+    max-width:238px;
+    white-space:nowrap;
     box-sizing:border-box;
   }
   .visibility-green{background:#E8F5E9!important;color:#49A84C!important}
@@ -398,6 +397,8 @@ export default function LiveSimulator() {
     .search-box{font-size:16px;max-width:100%}
     .option-title{font-size:20px}
   }
+
+  /* 🔥 Mobile-Optimierung (Portrait) – größere Pillen */
   @media (max-width:479px){
     .review-container{padding:40px 10px;border-radius:12px}
     .section-title{font-size:32px}
@@ -407,7 +408,16 @@ export default function LiveSimulator() {
     .rating-card{max-width:273px}
     .card-header{height:35px}
     .rating-value{font-size:22px!important}
-    .visibility-pill{font-size:12px;padding:6px 12px;max-width:200px}
+    /* 👇 Sichtbarkeitspills verbessert */
+    .visibility-pill{
+      font-size:13.5px;
+      padding:9px 18px;
+      max-width:260px;
+    }
+    .visibility-green{
+      background:#E8F5E9!important;
+      color:#49A84C!important;
+    }
     .delete-option{max-width:175px;padding:12px}
     .option-title{font-size:16px}
   }
