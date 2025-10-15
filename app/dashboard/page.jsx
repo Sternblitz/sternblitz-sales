@@ -1,25 +1,27 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Script from "next/script";
 import LiveSimulator from "../../components/LiveSimulator"; // Pfad passt zu deinem Setup
 
 export default function DashboardPage() {
   // UI
-  const [showStage2, setShowStage2] = useState(false); // nach erstem "Jetzt loslegen"
-  const [formOpen, setFormOpen] = useState(false);     // nach großem Raketen-Button
+  const [showStage2, setShowStage2] = useState(false); // erst großer Button -> danach Rakete
+  const [formOpen, setFormOpen] = useState(false);
   const formRef = useRef(null);
 
   // Prefill aus Simulator
   const [profile, setProfile] = useState({ name: "", address: "", url: "" });
-  const [option, setOption]   = useState("123"); // "123" | "12" | "1" | "custom"
-  const [customCount, setCustomCount] = useState("");
+  const [option, setOption] = useState("123"); // "123" | "12" | "1" | "custom"
 
-  // Kontaktdaten
-  const [company, setCompany]     = useState("");
+  // Formular-Felder
+  const [customCount, setCustomCount] = useState("");
+  const [customNotes, setCustomNotes] = useState(""); // <— Freitext „individuelle Wünsche“
+  const [company, setCompany] = useState("");
   const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName]   = useState("");
-  const [email, setEmail]         = useState("");
-  const [phone, setPhone]         = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
 
   // Readable Profil-Text
   const googleProfileText = useMemo(() => {
@@ -42,31 +44,25 @@ export default function DashboardPage() {
   };
 
   const scrollToForm = () => {
-    if (formRef.current) {
-      formRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   useEffect(() => {
     // Prefill direkt bei Mount
     pullFromSession();
 
-    // Auf Simulator-Start hören
+    // Simulator feuert, wenn user sucht/enter drückt
     const onStart = (e) => {
       const { name = "", address = "", url = "" } = e.detail || {};
       setProfile({ name, address, url });
-      // Firmenname vorfüllen, wenn leer
-      setCompany((prev) => prev || name || "");
-      // Option mitziehen (falls im Simulator geklickt)
+      if (!company) setCompany(name || "");
       const opt = sessionStorage.getItem("sb_selected_option");
       if (opt) setOption(opt);
-      // Sichtbar machen
       setShowStage2(true);
       setFormOpen(true);
       scrollToForm();
     };
 
-    // Option-Änderungen (im Simulator)
     const onOpt = () => {
       const opt = sessionStorage.getItem("sb_selected_option");
       if (opt) setOption(opt);
@@ -78,15 +74,16 @@ export default function DashboardPage() {
       window.removeEventListener("sb:simulator-start", onStart);
       window.removeEventListener("sb:option-changed", onOpt);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // CTA 1
+  // CTA 1 -> danach Rakete anzeigen
   const handleStage1 = () => {
     pullFromSession();
     setShowStage2(true);
   };
 
-  // CTA 2
+  // Rakete -> Formular togglen
   const handleStage2 = () => {
     pullFromSession();
     setFormOpen((v) => !v);
@@ -96,37 +93,94 @@ export default function DashboardPage() {
   // Option lokal + persistieren
   const onOptionChange = (val) => {
     setOption(val);
-    try { sessionStorage.setItem("sb_selected_option", val); } catch {}
+    try {
+      sessionStorage.setItem("sb_selected_option", val);
+    } catch {}
   };
 
-  // Submit (nur Demo — kein Backend, damit Deploy clean bleibt)
+  // === Google Places im FORMULAR (nur falls kein Profil aus Simulator) ===
+  const formGoogleInputRef = useRef(null);
+  const onMapsLoaded = () => {
+    // Wenn das Profil schon gefüllt ist, kein Formular-Autocomplete nötig
+    if (googleProfileText) return;
+    try {
+      const g = window.google;
+      if (!g?.maps?.places || !formGoogleInputRef.current) return;
+      const ac = new g.maps.places.Autocomplete(formGoogleInputRef.current, {
+        types: ["establishment"],
+        fields: ["name", "formatted_address", "url", "place_id"],
+      });
+      ac.addListener("place_changed", () => {
+        const place = ac.getPlace();
+        const name = place?.name || "";
+        const address = place?.formatted_address || "";
+        const url = place?.url || "";
+        const sel = { name, address, url };
+        setProfile(sel);
+        try {
+          sessionStorage.setItem("sb_selected_profile", JSON.stringify(sel));
+        } catch {}
+      });
+    } catch (e) {
+      console.warn("Form-Autocomplete init error:", e);
+    }
+  };
+
+  // Submit (validiert Google-Profil)
   const onSubmit = (e) => {
     e.preventDefault();
+
+    // Wenn kein Google-Profil gesetzt wurde, aborten + Fokus aufs Formularfeld
+    if (!googleProfileText.trim()) {
+      alert("Bitte wähle dein Google-Profil über das Suchfeld aus.");
+      formGoogleInputRef.current?.focus();
+      return;
+    }
+
     const payload = {
       googleProfile: googleProfileText,
+      googleUrl: profile?.url || "",
       selectedOption: option,
       customCount: option === "custom" ? Number(customCount || 0) : null,
-      company, firstName, lastName, email, phone,
+      customNotes: option === "custom" ? customNotes : "",
+      company,
+      firstName,
+      lastName,
+      email,
+      phone,
       submittedAt: new Date().toISOString(),
     };
-    try { sessionStorage.setItem("sb_checkout_payload", JSON.stringify(payload)); } catch {}
+
+    try {
+      sessionStorage.setItem("sb_checkout_payload", JSON.stringify(payload));
+    } catch {}
+
     console.log("Lead payload:", payload);
     alert("Danke! Wir haben deine Angaben vorgemerkt. (Nächster Step: Signatur + PDF + E-Mail)");
   };
 
   return (
     <main className="sb-dashboard-wrap">
+      {/* Google Maps Script nur einmal laden (harmlos, falls Simulator es schon hat) */}
+      <Script
+        src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`}
+        strategy="afterInteractive"
+        onLoad={onMapsLoaded}
+      />
+
       {/* 1) Live-Simulator */}
       <LiveSimulator />
 
-      {/* 2) Stufe 1: schlanke Pille */}
-      <div className="cta-stage1">
-        <button className={`pill-btn ${showStage2 ? "on" : ""}`} onClick={handleStage1}>
-          Jetzt loslegen
-        </button>
-      </div>
+      {/* 2) EIN großer Button – erst sichtbar */}
+      {!showStage2 && (
+        <div className="cta-stage1">
+          <button className="big-start-btn" onClick={handleStage1}>
+            Jetzt loslegen
+          </button>
+        </div>
+      )}
 
-      {/* 3) Stufe 2: großer Raketen-Button */}
+      {/* 3) Danach: Raketen-Button (ersetzt den ersten) */}
       {showStage2 && (
         <div className="cta-stage2">
           <button className={`rocket-btn ${formOpen ? "active" : ""}`} onClick={handleStage2}>
@@ -145,19 +199,36 @@ export default function DashboardPage() {
           {/* Google-Profil */}
           <div className="field">
             <label>Google-Profil</label>
-            <div className="profile-input">
-              <input
-                type="text"
-                value={googleProfileText}
-                readOnly
-                placeholder="Wird automatisch aus dem Live-Simulator übernommen"
-              />
-              {profile?.url ? (
-                <a className="profile-link" href={profile.url} target="_blank" rel="noreferrer">
-                  Profil öffnen ↗
-                </a>
-              ) : null}
-            </div>
+
+            {/* Wenn schon ein Profil vorhanden ist: readOnly + Link */}
+            {googleProfileText ? (
+              <div className="profile-input">
+                <input
+                  type="text"
+                  value={googleProfileText}
+                  readOnly
+                  aria-readonly
+                  placeholder="Wird automatisch aus dem Live-Simulator übernommen"
+                />
+                {profile?.url ? (
+                  <a className="profile-link" href={profile.url} target="_blank" rel="noreferrer">
+                    Profil öffnen ↗
+                  </a>
+                ) : null}
+              </div>
+            ) : (
+              // Falls leer: Google Places Autocomplete Pflichtfeld
+              <div className="profile-input">
+                <input
+                  ref={formGoogleInputRef}
+                  type="search"
+                  inputMode="search"
+                  placeholder='Dein Google-Unternehmen suchen… z. B. "Restaurant XY"'
+                  required
+                />
+                <span className="profile-hint">Pflichtfeld</span>
+              </div>
+            )}
           </div>
 
           {/* Auswahl: welche Bewertungen löschen */}
@@ -210,18 +281,30 @@ export default function DashboardPage() {
             </div>
 
             {option === "custom" && (
-              <div className="field inline">
-                <label>Wie viele sollen gelöscht werden?</label>
-                <input
-                  type="number"
-                  min="1"
-                  step="1"
-                  placeholder="z. B. 17"
-                  value={customCount}
-                  onChange={(e) => setCustomCount(e.target.value)}
-                  required
-                />
-              </div>
+              <>
+                <div className="field inline">
+                  <label>Wie viele sollen gelöscht werden?</label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    placeholder="z. B. 17"
+                    value={customCount}
+                    onChange={(e) => setCustomCount(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="field">
+                  <label>Schreibe hier deine individuellen Wünsche</label>
+                  <textarea
+                    rows={4}
+                    placeholder="Beschreibe kurz, was wir individuell löschen oder prüfen sollen…"
+                    value={customNotes}
+                    onChange={(e) => setCustomNotes(e.target.value)}
+                  />
+                </div>
+              </>
             )}
           </div>
 
@@ -278,7 +361,10 @@ export default function DashboardPage() {
                 <label>Telefon</label>
                 <input
                   type="tel"
-                  placeholder="+49…"
+                  placeholder="+49 160 1234567"
+                  inputMode="tel"
+                  pattern="^[+0-9][0-9 ()-]{6,}$"
+                  title="Bitte eine gültige Telefonnummer angeben"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                 />
@@ -298,24 +384,24 @@ export default function DashboardPage() {
 
         .sb-dashboard-wrap{max-width:1208px;margin:0 auto;padding:0 12px 80px}
 
-        /* Stage 1: schlanke Pille */
+        /* EIN großer, schöner Button */
         .cta-stage1{display:flex;justify-content:center;margin-top:22px}
-        .pill-btn{
+        .big-start-btn{
           appearance:none;border:none;cursor:pointer;
-          padding:12px 18px;border-radius:999px;
-          font-weight:700;background:#0b0b0b;color:#fff;letter-spacing:.2px;
-          box-shadow:0 8px 24px rgba(0,0,0,.18);
-          transition:transform .12s ease, box-shadow .2s ease, background .2s ease;
+          padding:16px 26px;border-radius:16px;
+          font-weight:800;font-size:18px;letter-spacing:.2px;
+          background:linear-gradient(103deg,#111,#1f1f1f 60%, #0c0c0c 100%);
+          color:#fff;box-shadow:0 14px 40px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.06);
+          transition:transform .14s ease, box-shadow .22s ease, background .22s ease;
         }
-        .pill-btn:hover{transform:translateY(-1px);background:#111;box-shadow:0 12px 28px rgba(0,0,0,.22)}
-        .pill-btn.on{outline:2px solid rgba(73,168,76,.4)}
+        .big-start-btn:hover{transform:translateY(-1px);box-shadow:0 20px 48px rgba(0,0,0,.32)}
 
-        /* Stage 2: Rakete */
+        /* Rakete */
         .cta-stage2{display:flex;flex-direction:column;align-items:center;margin-top:14px}
         .rocket-btn{
           display:inline-flex;align-items:center;gap:10px;cursor:pointer;
           border:1px solid rgba(0,0,0,.65); border-radius:16px;
-          padding:16px 22px;font-weight:700;color:#fff;
+          padding:16px 22px;font-weight:800;color:#fff;font-size:16px;
           background:linear-gradient(103deg,#151515,#2b2b2b 55%, #0c0c0c 100%);
           box-shadow:0 12px 30px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.04);
           transition:transform .14s ease, box-shadow .22s ease, background .25s ease;
@@ -328,7 +414,7 @@ export default function DashboardPage() {
         /* Drawer */
         .drawer{
           max-width:880px;margin:18px auto 0;
-          background:rgba(255,255,255,.86);backdrop-filter:blur(8px);
+          background:rgba(255,255,255,.9);backdrop-filter:blur(8px);
           border:1px solid rgba(0,0,0,.06);border-radius:16px;
           box-shadow:0 20px 60px rgba(0,0,0,.12);
           overflow:hidden;transform:translateY(-6px) scale(.985);opacity:0;pointer-events:none;
@@ -344,15 +430,18 @@ export default function DashboardPage() {
         .field.inline{flex-direction:row;align-items:center;gap:12px}
         .field.inline label{min-width:260px}
         .field label{font:600 13px/1.2 Poppins,system-ui;color:#475569}
-        .field input{
-          height:46px;border-radius:12px;border:1px solid rgba(0,0,0,.1);padding:0 14px;
+        .field input,.field textarea{
+          border-radius:12px;border:1px solid rgba(0,0,0,.1);padding:10px 14px;
           font-size:16px;outline:none;background:#fff;transition:box-shadow .16s ease, border-color .16s ease;
         }
-        .field input:focus{border-color:#49a84c;box-shadow:0 0 0 4px rgba(73,168,76,.18)}
+        .field input{height:46px}
+        .field textarea{min-height:110px;resize:vertical}
+        .field input:focus,.field textarea:focus{border-color:#49a84c;box-shadow:0 0 0 4px rgba(73,168,76,.18)}
 
         .profile-input{display:flex;gap:10px;align-items:center}
         .profile-input input{flex:1}
         .profile-link{font-size:13px;color:#2563eb;text-decoration:underline;white-space:nowrap}
+        .profile-hint{font-size:12px;color:#6b7280;white-space:nowrap}
 
         .row{display:flex;gap:12px}
         .half{flex:1}
@@ -392,6 +481,7 @@ export default function DashboardPage() {
           .field.inline label{min-width:unset}
           .checks{grid-template-columns:1fr}
           .submit-btn{width:100%}
+          .big-start-btn{width:100%}
         }
       `}</style>
     </main>
