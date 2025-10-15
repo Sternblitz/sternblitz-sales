@@ -1,36 +1,40 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Script from "next/script";
-import LiveSimulator from "../../components/LiveSimulator"; // passt zu deinem Setup
+import LiveSimulator from "../../components/LiveSimulator"; // unverändert lassen
 
 export default function DashboardPage() {
   const [formOpen, setFormOpen] = useState(false);
-  const formRef = useRef(null);
 
-  const [option, setOption] = useState("123");
+  // Auswahl aus dem Simulator
+  const [option, setOption] = useState("123"); // "123" | "12" | "1" | "custom"
+
+  // Google-Profil (Form-Feld, editierbar)
   const formGoogleInputRef = useRef(null);
-  const [googleField, setGoogleField] = useState("");
+  const [googleField, setGoogleField] = useState(""); // "Name, Adresse"
   const [googleUrl, setGoogleUrl] = useState("");
 
+  // Kontaktdaten
   const [company, setCompany] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+
+  // Individuelle Wünsche (Textfeld)
   const [customNotes, setCustomNotes] = useState("");
 
-  const scrollToForm = () => {
+  const formRef = useRef(null);
+  const scrollToForm = () =>
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
 
-  const pullLatestFromSession = () => {
+  // Immer das FRISCH gespeicherte Profil ziehen
+  const pullLatest = () => {
     try {
       const raw = sessionStorage.getItem("sb_selected_profile");
       if (raw) {
         const p = JSON.parse(raw);
-        const fresh = [p?.name || "", p?.address || ""].filter(Boolean).join(", ");
-        setGoogleField(fresh);
+        setGoogleField([p?.name || "", p?.address || ""].filter(Boolean).join(", "));
         setGoogleUrl(p?.url || "");
       }
       const opt = sessionStorage.getItem("sb_selected_option");
@@ -38,45 +42,41 @@ export default function DashboardPage() {
     } catch {}
   };
 
+  // Live-Events vom Simulator
   useEffect(() => {
     const onStart = (e) => {
       const { name = "", address = "", url = "" } = e.detail || {};
-      const fresh = [name, address].filter(Boolean).join(", ");
-      setGoogleField(fresh);
+      setGoogleField([name, address].filter(Boolean).join(", "));
       setGoogleUrl(url || "");
-      try {
-        const opt = sessionStorage.getItem("sb_selected_option");
-        if (opt) setOption(opt);
-      } catch {}
-      if (!formOpen) setFormOpen(true);
-      setTimeout(scrollToForm, 30);
+      const opt = sessionStorage.getItem("sb_selected_option");
+      if (opt) setOption(opt);
+      setFormOpen(true);
+      setTimeout(scrollToForm, 20);
     };
-
     const onOpt = () => {
-      try {
-        const opt = sessionStorage.getItem("sb_selected_option");
-        if (opt) setOption(opt);
-      } catch {}
+      const opt = sessionStorage.getItem("sb_selected_option");
+      if (opt) setOption(opt);
     };
-
     window.addEventListener("sb:simulator-start", onStart);
     window.addEventListener("sb:option-changed", onOpt);
     return () => {
       window.removeEventListener("sb:simulator-start", onStart);
       window.removeEventListener("sb:option-changed", onOpt);
     };
-  }, [formOpen]);
+  }, []);
 
-  const openFormNow = () => {
-    pullLatestFromSession();
+  // Einmalig beim Öffnen nochmal ziehen (falls Nutzer manuell tippt)
+  const openForm = () => {
+    pullLatest();
     setFormOpen(true);
-    setTimeout(scrollToForm, 30);
+    setTimeout(scrollToForm, 20);
   };
 
-  const onMapsLoaded = () => {
+  // Google Places Autocomplete auch im Formular (bearbeitbar)
+  useEffect(() => {
+    const g = window.google;
+    if (!g?.maps?.places || !formGoogleInputRef.current) return;
     try {
-      const g = window.google;
-      if (!g?.maps?.places || !formGoogleInputRef.current) return;
       const ac = new g.maps.places.Autocomplete(formGoogleInputRef.current, {
         types: ["establishment"],
         fields: ["name", "formatted_address", "url", "place_id"],
@@ -90,13 +90,16 @@ export default function DashboardPage() {
         setGoogleField(fresh);
         setGoogleUrl(url || "");
         try {
-          sessionStorage.setItem("sb_selected_profile", JSON.stringify({ name, address, url }));
+          sessionStorage.setItem(
+            "sb_selected_profile",
+            JSON.stringify({ name, address, url })
+          );
         } catch {}
       });
     } catch (e) {
-      console.warn("Form-Autocomplete init error:", e);
+      console.warn("Form autocomplete init error:", e);
     }
-  };
+  }, [formOpen]); // initialisieren wenn das Formular sichtbar wird
 
   const onOptionChange = (val) => {
     setOption(val);
@@ -105,16 +108,16 @@ export default function DashboardPage() {
     } catch {}
   };
 
-  const onSubmit = (e) => {
+  const submit = (e) => {
     e.preventDefault();
     if (!googleField.trim()) {
-      alert("Bitte wähle oder tippe dein Google-Profil.");
+      alert("Bitte ein Google-Profil angeben.");
       formGoogleInputRef.current?.focus();
       return;
     }
     const payload = {
       googleProfile: googleField.trim(),
-      googleUrl: googleUrl || "",
+      googleUrl,
       selectedOption: option,
       customNotes: option === "custom" ? customNotes.trim() : "",
       company,
@@ -128,66 +131,91 @@ export default function DashboardPage() {
       sessionStorage.setItem("sb_checkout_payload", JSON.stringify(payload));
     } catch {}
     console.log("Lead payload:", payload);
-    alert("Formular wurde erfolgreich ausgefüllt. (Nächster Schritt: Signatur & PDF)");
+    alert("Auftrag erfasst. (Nächster Schritt: Signatur & PDF)");
   };
 
   return (
-    <main className="sb-dashboard-wrap">
-      <Script
-        src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`}
-        strategy="afterInteractive"
-        onLoad={onMapsLoaded}
-      />
-
+    <main className="sb-wrap">
+      {/* Live-Simulator */}
       <LiveSimulator />
 
+      {/* EIN Button (schwarz) */}
       {!formOpen && (
-        <div className="cta-one">
-          <button className="rocket-btn" onClick={openFormNow}>
-            <span className="emoji">🚀</span>
-            <span>Jetzt loslegen</span>
+        <div className="cta">
+          <button className="primary-btn" onClick={openForm}>
+            Jetzt loslegen
           </button>
         </div>
       )}
 
+      {/* Formular */}
       <section
         ref={formRef}
         className={`drawer ${formOpen ? "open" : ""}`}
         aria-hidden={!formOpen}
       >
-        <div className="drawer-head">
-          <h2 className="drawer-title">Es kann gleich losgehen ✨</h2>
-          <p className="drawer-sub">
-            Lass uns dieses Formular kurz gemeinsam ausfüllen – dann geht’s schon los.
+        <header className="drawer-head">
+          <h2 className="title">Es kann gleich losgehen ✨</h2>
+          <p className="sub">
+            Bitte kurz ausfüllen – dann bestätigen wir den Auftrag direkt.
           </p>
-        </div>
+        </header>
 
-        <form className="lead-form" onSubmit={onSubmit}>
-          <div className="field">
-            <label>Google-Profil <span className="req">*</span></label>
-            <div className="profile-input">
-              <input
-                ref={formGoogleInputRef}
-                type="search"
-                inputMode="search"
-                placeholder='Unternehmen suchen oder eintragen… z. B. "Restaurant XY, Berlin"'
-                required
-                value={googleField}
-                onChange={(e) => {
-                  setGoogleField(e.target.value);
-                  if (googleUrl) setGoogleUrl("");
-                }}
-              />
+        <form className="lead-form" onSubmit={submit}>
+          {/* Google-Profil */}
+          <div className="group">
+            <div className="group-title">
+              Google-Profil <span className="req">*</span>
+            </div>
+            <div className="profile-row">
+              <div className="profile-input">
+                <input
+                  ref={formGoogleInputRef}
+                  type="search"
+                  inputMode="search"
+                  placeholder='Unternehmen suchen oder eintragen… z. B. "Restaurant XY, Berlin"'
+                  required
+                  value={googleField}
+                  onChange={(e) => {
+                    setGoogleField(e.target.value);
+                    if (googleUrl) setGoogleUrl("");
+                  }}
+                />
+                {googleField && (
+                  <button
+                    type="button"
+                    className="clear-x"
+                    aria-label="Feld leeren"
+                    onClick={() => {
+                      setGoogleField("");
+                      setGoogleUrl("");
+                      formGoogleInputRef.current?.focus();
+                    }}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+
               {googleUrl ? (
-                <a className="profile-link" href={googleUrl} target="_blank" rel="noreferrer">
+                <a
+                  className="profile-link"
+                  href={googleUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   Profil öffnen ↗
                 </a>
               ) : null}
             </div>
           </div>
 
+          {/* Welche Bewertungen sollen gelöscht werden? (Cards-Grid wie vorher) */}
           <div className="group">
-            <div className="group-title">Welche Bewertungen sollen gelöscht werden? <span className="req">*</span></div>
+            <div className="group-title">
+              Welche Bewertungen sollen gelöscht werden? <span className="req">*</span>
+            </div>
+
             <div className="checks">
               {[
                 ["123", "1–3 ⭐ löschen"],
@@ -203,17 +231,20 @@ export default function DashboardPage() {
                     checked={option === val}
                     onChange={() => onOptionChange(val)}
                   />
-                  <span className="mark" /> {label}
+                  <span className="mark" />
+                  {label}
                 </label>
               ))}
             </div>
 
             {option === "custom" && (
               <div className="field">
-                <label>Individuelle Wünsche <span className="req">*</span></label>
+                <label>
+                  Individuelle Wünsche <span className="req">*</span>
+                </label>
                 <textarea
                   rows={4}
-                  placeholder="Beschreibe kurz, was individuell gelöscht werden soll..."
+                  placeholder="Beschreibe kurz, was individuell gelöscht werden soll…"
                   value={customNotes}
                   onChange={(e) => setCustomNotes(e.target.value)}
                   required
@@ -222,10 +253,14 @@ export default function DashboardPage() {
             )}
           </div>
 
+          {/* Kontaktdaten – kompaktere Inputs + mehr Luft nach Telefon */}
           <div className="group">
             <div className="group-title">Kontaktdaten</div>
+
             <div className="field">
-              <label>Firmenname <span className="req">*</span></label>
+              <label>
+                Firmenname <span className="req">*</span>
+              </label>
               <input
                 type="text"
                 placeholder="z. B. Smashburger GmbH"
@@ -237,7 +272,9 @@ export default function DashboardPage() {
 
             <div className="row">
               <div className="field half">
-                <label>Vorname <span className="req">*</span></label>
+                <label>
+                  Vorname <span className="req">*</span>
+                </label>
                 <input
                   type="text"
                   placeholder="Max"
@@ -247,7 +284,9 @@ export default function DashboardPage() {
                 />
               </div>
               <div className="field half">
-                <label>Nachname <span className="req">*</span></label>
+                <label>
+                  Nachname <span className="req">*</span>
+                </label>
                 <input
                   type="text"
                   placeholder="Mustermann"
@@ -260,7 +299,9 @@ export default function DashboardPage() {
 
             <div className="row">
               <div className="field half">
-                <label>E-Mail <span className="req">*</span></label>
+                <label>
+                  E-Mail <span className="req">*</span>
+                </label>
                 <input
                   type="email"
                   placeholder="max@firma.de"
@@ -270,7 +311,9 @@ export default function DashboardPage() {
                 />
               </div>
               <div className="field half">
-                <label>Telefon <span className="req">*</span></label>
+                <label>
+                  Telefon <span className="req">*</span>
+                </label>
                 <input
                   type="tel"
                   placeholder="+49 160 1234567"
@@ -286,53 +329,56 @@ export default function DashboardPage() {
           </div>
 
           <div className="actions">
-            <button type="submit" className="submit-btn">Auftrag anstoßen</button>
+            <button className="submit-btn" type="submit">
+              Auftrag bestätigen
+            </button>
           </div>
         </form>
       </section>
 
+      {/* Styles */}
       <style jsx global>{`
-        .sb-dashboard-wrap {
+        .sb-wrap {
           max-width: 1208px;
           margin: 0 auto;
           padding: 0 12px 80px;
         }
 
-        .cta-one {
+        /* EIN Button (schwarz) */
+        .cta {
           display: flex;
           justify-content: center;
           margin-top: 18px;
         }
-        .rocket-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          cursor: pointer;
-          border: 1px solid rgba(0, 0, 0, 0.65);
-          border-radius: 16px;
-          padding: 16px 26px;
-          font-weight: 800;
+        .primary-btn {
+          appearance: none;
+          border: 1px solid #0b0b0b;
+          background: #0b0b0b;
           color: #fff;
-          font-size: 18px;
-          background: linear-gradient(103deg, #0a58c7, #1b74ff 55%, #0984ff 100%);
-          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
-          transition: transform 0.14s ease, box-shadow 0.22s ease, background 0.25s ease;
+          padding: 14px 22px;
+          border-radius: 999px;
+          font-weight: 800;
+          letter-spacing: 0.2px;
+          box-shadow: 0 10px 26px rgba(0, 0, 0, 0.2);
+          transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.2s ease;
         }
-        .rocket-btn:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 18px 46px rgba(0, 0, 0, 0.3);
+        .primary-btn:hover {
+          transform: translateY(-1px);
+          background: #111;
+          box-shadow: 0 14px 32px rgba(0, 0, 0, 0.28);
         }
 
+        /* Drawer (hellblauer Verlauf bleibt) */
         .drawer {
           max-width: 900px;
           margin: 20px auto 0;
-          background: linear-gradient(135deg, #DBEDFF 0%, #ffffff 80%);
-          border: 1px solid rgba(0, 0, 0, 0.05);
+          background: linear-gradient(135deg, #dbedff 0%, #ffffff 80%);
+          border: 1px solid rgba(0, 0, 0, 0.06);
           border-radius: 20px;
           box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
           opacity: 0;
           transform: translateY(-6px);
-          transition: all 0.3s ease;
+          transition: all 0.28s ease;
           pointer-events: none;
         }
         .drawer.open {
@@ -342,89 +388,238 @@ export default function DashboardPage() {
         }
 
         .drawer-head {
-          padding: 24px 24px 0;
           text-align: center;
+          padding: 22px 22px 0;
         }
-        .drawer-title {
+        .drawer-head .title {
           font-family: "Outfit", sans-serif;
-          font-weight: 700;
+          font-weight: 800;
           font-size: 28px;
+          margin: 0 0 6px;
           color: #0f172a;
-          margin-bottom: 8px;
         }
-        .drawer-sub {
+        .drawer-head .sub {
           color: #4b5563;
           font-size: 15px;
+          margin: 0;
         }
 
         .lead-form {
-          padding: 20px 24px 30px;
+          padding: 18px 22px 26px;
         }
 
+        .group {
+          margin-top: 18px;
+        }
         .group-title {
           font-family: "Outfit", sans-serif;
           font-weight: 700;
           font-size: 18px;
-          margin-top: 20px;
+          color: #0f172a;
+          margin-bottom: 8px;
+        }
+        .req {
+          color: #e11d48;
+          font-weight: 800;
         }
 
-        .field {
+        /* Google-Profil: wieder breit + Clear-X + Profil öffnen Button */
+        .profile-row {
           display: flex;
-          flex-direction: column;
-          gap: 5px;
-          margin-top: 10px;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
         }
-        .field input,
-        .field textarea {
+        .profile-input {
+          position: relative;
+          flex: 1 1 520px;
+          min-width: 300px;
+        }
+        .profile-input input {
+          width: 100%;
+          height: 36px; /* kompakter */
           border-radius: 10px;
           border: 1px solid rgba(0, 0, 0, 0.12);
-          padding: 8px 12px;
+          padding: 8px 34px 8px 12px; /* Platz für X rechts */
           font-size: 15px;
-          height: 38px;
           background: #fff;
           transition: border-color 0.16s ease, box-shadow 0.16s ease;
         }
-        .field textarea {
-          height: auto;
+        .profile-input input:focus {
+          border-color: #0b6cf2;
+          box-shadow: 0 0 0 3px rgba(11, 108, 242, 0.2);
         }
-        .field input:focus,
-        .field textarea:focus {
-          border-color: #0984ff;
-          box-shadow: 0 0 0 3px rgba(9, 132, 255, 0.2);
+        .clear-x {
+          position: absolute;
+          right: 8px;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 22px;
+          height: 22px;
+          line-height: 20px;
+          border-radius: 50%;
+          border: 1px solid rgba(0, 0, 0, 0.15);
+          background: #fff;
+          color: #111;
+          font-size: 16px;
+          cursor: pointer;
+          padding: 0;
+        }
+        .profile-link {
+          display: inline-flex;
+          align-items: center;
+          height: 36px;
+          padding: 0 12px;
+          border-radius: 10px;
+          border: 1px solid #dbeafe;
+          background: #eef5ff;
+          color: #0a58c7;
+          font-weight: 600;
+          text-decoration: none;
+          white-space: nowrap;
+        }
+        .profile-link:hover {
+          background: #e4efff;
         }
 
-        .req {
-          color: #e11d48;
+        /* Choice Cards im Grid (wie vorher) */
+        .checks {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+          margin-top: 8px;
         }
-
         .choice {
           display: flex;
           align-items: center;
           gap: 10px;
+          padding: 12px 14px;
+          border-radius: 12px;
           border: 1px solid #eaf0fe;
-          border-radius: 10px;
-          padding: 10px 14px;
-          cursor: pointer;
           background: #fff;
+          cursor: pointer;
+          user-select: none;
           font-weight: 600;
+          color: #0e0e0e;
+          transition: border-color 0.14s ease, box-shadow 0.14s ease, transform 0.05s ease;
+        }
+        .choice:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+          border-color: #d6e5ff;
         }
         .choice.on {
-          border-color: #0984ff;
+          box-shadow: 0 0 0 2px rgba(11, 108, 242, 0.22) inset;
+          border-color: #0b6cf2;
+          background: #eef5ff;
+        }
+        .choice input {
+          display: none;
+        }
+        .choice .mark {
+          width: 18px;
+          height: 18px;
+          border-radius: 4px;
+          border: 2px solid #64748b;
+          display: inline-block;
+          position: relative;
+          flex: none;
+        }
+        .choice.on .mark {
+          border-color: #0b6cf2;
           background: #eaf3ff;
         }
+        .choice.on .mark::after {
+          content: "";
+          position: absolute;
+          inset: 3px;
+          background: #0b6cf2;
+          border-radius: 2px;
+        }
 
+        /* Inputs kompakter + mehr Luft nach Telefon */
+        .field {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          margin-top: 10px;
+        }
+        .field label {
+          font-weight: 600;
+          color: #475569;
+          font-size: 13px;
+        }
+        .field input,
+        .field textarea {
+          height: 34px; /* kompakter als zuvor */
+          border-radius: 10px;
+          border: 1px solid rgba(0, 0, 0, 0.12);
+          padding: 6px 10px;
+          font-size: 15px;
+          background: #fff;
+          transition: border-color 0.16s ease, box-shadow 0.16s ease;
+        }
+        .field textarea {
+          height: auto; /* Textarea bleibt dynamisch */
+        }
+        .field input:focus,
+        .field textarea:focus {
+          border-color: #0b6cf2;
+          box-shadow: 0 0 0 3px rgba(11, 108, 242, 0.2);
+        }
+
+        .row {
+          display: flex;
+          gap: 12px;
+        }
+        .half {
+          flex: 1;
+        }
+
+        /* Extra Luft nach der Telefon-Reihe */
+        .group:last-of-type .row:last-of-type {
+          margin-bottom: 12px;
+        }
+
+        .actions {
+          display: flex;
+          justify-content: flex-end;
+          margin-top: 6px;
+        }
         .submit-btn {
-          background: #0984ff;
+          background: #0b0b0b;
           color: #fff;
-          padding: 12px 20px;
+          padding: 12px 18px;
           border-radius: 12px;
-          font-weight: 700;
-          border: none;
+          font-weight: 800;
+          letter-spacing: 0.2px;
+          border: 1px solid #0b0b0b;
           cursor: pointer;
-          transition: 0.2s;
+          transition: 0.18s ease;
         }
         .submit-btn:hover {
-          background: #0a6ae8;
+          background: #111;
+          box-shadow: 0 10px 26px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Mobile */
+        @media (max-width: 820px) {
+          .drawer {
+            margin: 16px 0 0;
+            border-radius: 16px;
+          }
+          .checks {
+            grid-template-columns: 1fr;
+          }
+          .row {
+            flex-direction: column;
+          }
+          .actions {
+            justify-content: stretch;
+          }
+          .submit-btn {
+            width: 100%;
+          }
         }
       `}</style>
     </main>
