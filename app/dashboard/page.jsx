@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import LiveSimulator from "../../components/LiveSimulator";// <- dein Pfad
+import dynamic from "next/dynamic";
+
+// Wichtig: Datei muss exakt so heißen: components/LiveSimulator.jsx (Groß-/Kleinschreibung!)
+// Der dynamische Import verhindert SSR und damit Build-Probleme bei window/document/Google Maps.
+const LiveSimulator = dynamic(
+  () => import("../../components/LiveSimulator"),
+  { ssr: false }
+);
 
 export default function DashboardPage() {
   // --- UI / Offen-States ---
@@ -27,22 +34,28 @@ export default function DashboardPage() {
     return `${name}${address ? ", " + address : ""}`;
   }, [profile]);
 
-  // Prefill bei Mount + wenn Buttons geöffnet werden
+  // Prefill aus sessionStorage holen
   const pullFromSession = () => {
     try {
       const raw = sessionStorage.getItem("sb_selected_profile");
       if (raw) {
         const p = JSON.parse(raw);
-        setProfile({ name: p?.name || "", address: p?.address || "", url: p?.url || "" });
+        setProfile({
+          name: p?.name || "",
+          address: p?.address || "",
+          url: p?.url || "",
+        });
       }
       const opt = sessionStorage.getItem("sb_selected_option");
       if (opt) setOption(opt);
-    } catch {}
+    } catch {
+      /* ignore */
+    }
   };
 
   useEffect(() => {
     pullFromSession();
-    // Falls dein Simulator CustomEvents feuert, hören wir sie hier:
+    // Falls dein Simulator CustomEvents feuert, hören wir sie hier
     const onProfileChanged = () => pullFromSession();
     window.addEventListener("sb:profile-changed", onProfileChanged);
     window.addEventListener("sb:option-changed", onProfileChanged);
@@ -61,16 +74,18 @@ export default function DashboardPage() {
   // CTA 2 (Rakete) -> Formular aufklappen + frisches Prefill
   const handleStage2 = () => {
     pullFromSession();
-    setFormOpen(v => !v);
+    setFormOpen((v) => !v);
   };
 
   // Option umschalten + mitschreiben
   const onOptionChange = (val) => {
     setOption(val);
-    sessionStorage.setItem("sb_selected_option", val);
+    try {
+      sessionStorage.setItem("sb_selected_option", val);
+    } catch {}
   };
 
-  // Absenden (Lead anstoßen – aktuell nur persist + alert/console)
+  // Absenden (Lead anstoßen – aktuell Demo)
   const onSubmit = (e) => {
     e.preventDefault();
 
@@ -78,14 +93,18 @@ export default function DashboardPage() {
       googleProfile: googleProfileText,
       selectedOption: option,
       customCount: option === "custom" ? Number(customCount || 0) : null,
-      company, firstName, lastName, email, phone,
+      company,
+      firstName,
+      lastName,
+      email,
+      phone,
     };
 
-    sessionStorage.setItem("sb_checkout_payload", JSON.stringify(payload));
+    try {
+      sessionStorage.setItem("sb_checkout_payload", JSON.stringify(payload));
+    } catch {}
 
-    // Nächster Schritt (wenn du willst):
-    // await fetch("/api/lead", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload) });
-
+    // Hier später: fetch("/api/lead", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)})
     console.log("Lead payload:", payload);
     alert("Top! Wir haben deine Angaben vorgemerkt. (Nächster Schritt: PDF/Signatur/AGB)");
   };
@@ -111,7 +130,7 @@ export default function DashboardPage() {
               <span>Jetzt loslegen</span>
             </button>
             <p className="cta-sub">
-              Wir füllen die Felder automatisch mit deinem Profil & Auswahl aus dem Simulator.
+              Wir füllen die Felder automatisch mit deinem Profil &amp; der Auswahl aus dem Simulator.
             </p>
           </div>
         )}
