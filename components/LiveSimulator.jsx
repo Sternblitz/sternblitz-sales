@@ -1,63 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Script from "next/script";
 
-/**
- * LiveSimulator – Webflow-Optik + Optionen + Prefill-Persist
- * - Google Places Autocomplete
- * - ENTER oder Auswahl startet Fetch + Countdown "Lade Bewertungen…"
- * - Darstellung 1:1 wie Webflow (Chips, Klammer, 2 Karten, Option-Buttons)
- * - Unten: NUR die drei Options-Buttons (1–3 / 1–2 / 1). KEIN zusätzlicher CTA.
- * - Persist in sessionStorage:
- *   - sb_selected_profile_text -> sichtbarer Text im Input
- *   - sb_selected_profile      -> { name, address, url }
- *   - sb_selected_option       -> "123" | "12" | "1"
- * - Exponiert Helpers:
- *   - window.sbSimulatorGetPrefill()
- *   - window.sbSimulatorPersist()
- */
 export default function LiveSimulator() {
   const inputRef = useRef(null);
   const [loadingText, setLoadingText] = useState("");
   const [data, setData] = useState(null); // { averageRating, totalReviews, breakdown }
   const [error, setError] = useState("");
   const [selected, setSelected] = useState(null); // { name, address, url? }
-  const [activeOpt, setActiveOpt] = useState("123"); // "123" | "12" | "1" (1–3 vorselektiert)
-
-  // ---------- Persist Helpers ----------
-  const snapshot = () => {
-    const text = (inputRef.current?.value || "").trim();
-    return {
-      text,
-      option: activeOpt,
-      parsed: selected || { name: "", address: "", url: "" },
-    };
-  };
-
-  const persist = () => {
-    try {
-      const s = snapshot();
-      sessionStorage.setItem("sb_selected_profile_text", s.text);
-      sessionStorage.setItem("sb_selected_option", s.option);
-      sessionStorage.setItem("sb_selected_profile", JSON.stringify(s.parsed));
-      return s;
-    } catch (e) {
-      return snapshot();
-    }
-  };
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.sbSimulatorGetPrefill = () => snapshot();
-    window.sbSimulatorPersist = () => persist();
-  }, [activeOpt, selected]);
-
-  // Option sofort mitschreiben
-  useEffect(() => {
-    persist();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeOpt]);
+  const [activeOpt, setActiveOpt] = useState("123"); // "123" | "12" | "1"
 
   // ---------- Google Places ----------
   const onGoogleLoad = () => {
@@ -78,10 +30,8 @@ export default function LiveSimulator() {
         const url = place.url || "";
         const sel = { name, address, url };
         setSelected(sel);
-        if (inputRef.current) {
-          inputRef.current.value = `${name}${address ? ", " + address : ""}`;
-        }
-        persist();
+        sessionStorage.setItem("sb_selected_profile", JSON.stringify(sel));
+        inputRef.current.value = `${name}${address ? ", " + address : ""}`;
         runFetch(name, address);
       });
     } catch (e) {
@@ -137,7 +87,7 @@ export default function LiveSimulator() {
     const address = parts.join(",").trim();
     const sel = { name, address, url: "" };
     setSelected(sel);
-    persist();
+    sessionStorage.setItem("sb_selected_profile", JSON.stringify(sel));
     runFetch(name, address);
   };
 
@@ -154,6 +104,7 @@ export default function LiveSimulator() {
     const below = Math.round((4.0 - rating) * 10);
     return -170 - below * 3;
   };
+
   const computeImprovementVisibility = (oldRating, newRating) => {
     if (newRating <= oldRating) return 0;
     const possible = 5 - oldRating;
@@ -162,7 +113,7 @@ export default function LiveSimulator() {
     return Math.min(200, Math.round(frac * 200));
   };
 
-  // „Nach Löschung“ je nach Option
+  // berechne „Nach Löschung“ je nach aktiver Option
   const reducedStats = (dataObj, opt) => {
     const { totalReviews: total, breakdown } = dataObj;
     const map = { "123": [1, 2, 3], "12": [1, 2], "1": [1] };
@@ -179,11 +130,29 @@ export default function LiveSimulator() {
     return { newTotal, newAvg, removed };
   };
 
+  // counts für Buttons (immer mit "Entfernte: X" anzeigen)
+  const getCounts = () => {
+    if (!data?.breakdown) return { c123: 0, c12: 0, c1: 0 };
+    const b = data.breakdown;
+    const c1 = b[1] || 0;
+    const c12 = c1 + (b[2] || 0);
+    const c123 = c12 + (b[3] || 0);
+    return { c123, c12, c1 };
+  };
+
+  const { c123, c12, c1 } = getCounts();
+
+  // Option anklicken -> merken (für späteres Prefill im Formular)
+  const selectOption = (opt) => {
+    setActiveOpt(opt);
+    sessionStorage.setItem("sb_selected_option", opt);
+  };
+
   // ---------- Render-Teil ----------
   const Cards = () => {
     if (!data) return null;
+
     const { averageRating: avg, totalReviews: total, breakdown } = data;
-    const badCount = (breakdown[1] || 0) + (breakdown[2] || 0) + (breakdown[3] || 0);
     const curVis = computeCurrentVisibility(avg);
     const { newTotal, newAvg } = reducedStats(data, activeOpt);
 
@@ -212,7 +181,10 @@ export default function LiveSimulator() {
           <div className="rating-text">
             <span className="icon">⚠️</span>
             <span className="text">
-              1–3 Sterne: <strong id="bad-count">{badCount.toLocaleString()}</strong>
+              1–3 Sterne:{" "}
+              <strong id="bad-count">
+                {( (breakdown[1]||0) + (breakdown[2]||0) + (breakdown[3]||0) ).toLocaleString()}
+              </strong>
             </span>
             <span className="close">❌</span>
           </div>
@@ -261,36 +233,36 @@ export default function LiveSimulator() {
         <div className="option-row">
           <button
             className={`delete-option ${activeOpt === "123" ? "active" : ""}`}
-            onClick={() => setActiveOpt("123")}
+            onClick={() => selectOption("123")}
             aria-pressed={activeOpt === "123"}
           >
             <span className="option-title">1–3 ⭐ löschen</span>
             <div className="option-sub">
-              <div>Entfernte: {badCount.toLocaleString()}</div>
+              <div>Entfernte: {c123.toLocaleString()}</div>
               <div>Pauschal 299€</div>
             </div>
           </button>
 
           <button
             className={`delete-option ${activeOpt === "12" ? "active" : ""}`}
-            onClick={() => setActiveOpt("12")}
+            onClick={() => selectOption("12")}
             aria-pressed={activeOpt === "12"}
           >
             <span className="option-title">1–2 ⭐ löschen</span>
             <div className="option-sub">
-              <div>{((data.breakdown[1] || 0) + (data.breakdown[2] || 0)).toLocaleString()}</div>
+              <div>Entfernte: {c12.toLocaleString()}</div>
               <div>Pauschal 299€</div>
             </div>
           </button>
 
           <button
             className={`delete-option ${activeOpt === "1" ? "active" : ""}`}
-            onClick={() => setActiveOpt("1")}
+            onClick={() => selectOption("1")}
             aria-pressed={activeOpt === "1"}
           >
             <span className="option-title">1 ⭐ löschen</span>
             <div className="option-sub">
-              <div>{(data.breakdown[1] || 0).toLocaleString()}</div>
+              <div>Entfernte: {c1.toLocaleString()}</div>
               <div>Pauschal 299€</div>
             </div>
           </button>
@@ -320,7 +292,8 @@ export default function LiveSimulator() {
         </h3>
 
         <div className="review-card">
-          <div className="input-wrapper" style={{ position: "relative", display: "block", width: "100%" }}>
+          {/* Eingabefeld stets zentriert */}
+          <div className="input-wrapper">
             <input
               ref={inputRef}
               id="company-input"
@@ -330,18 +303,18 @@ export default function LiveSimulator() {
               className="search-box attention"
               autoComplete="off"
               onKeyDown={onKeyDown}
-              onInput={persist}
             />
-            {loadingText && <div id="review-output" className="loading-text">{loadingText}</div>}
-            {error && !loadingText && (
-              <div className="loading-text" style={{ color: "#E1432E" }}>{error}</div>
-            )}
-            {!loadingText && data && (
-              <div id="simulator" className="simulator-wrapper">
-                <Cards />
-              </div>
-            )}
           </div>
+
+          {loadingText && <div id="review-output" className="loading-text">{loadingText}</div>}
+          {error && !loadingText && (
+            <div className="loading-text" style={{ color: "#E1432E" }}>{error}</div>
+          )}
+          {!loadingText && data && (
+            <div id="simulator" className="simulator-wrapper">
+              <Cards />
+            </div>
+          )}
         </div>
       </div>
 
@@ -353,7 +326,9 @@ export default function LiveSimulator() {
         .section-title{max-width:975px;font-family:'Outfit',sans-serif;color:#010101;font-weight:400!important;margin:0 auto;font-size:48px;line-height:120%;text-align:center}
         .review-card{max-width:755px;margin:40px auto 0;padding:40px;border-radius:8px;background:#fff}
 
-        .search-box{width:100%;max-width:675px;padding:9px 20px;border:1px solid rgba(1,1,1,.1);border-radius:8px;font-family:Poppins;font-size:18px;line-height:150%;outline:none;box-sizing:border-box}
+        /* Eingabefeld zentrieren + Breite kontrollieren */
+        .input-wrapper{display:flex;justify-content:center}
+        .search-box{display:block;width:100%;max-width:675px;margin:0 auto;padding:9px 20px;border:1px solid rgba(1,1,1,.1);border-radius:8px;font-family:Poppins;font-size:18px;line-height:150%;outline:none;box-sizing:border-box}
         .search-box:focus{border-color:#49a84c}
         .search-box.attention{animation:breathe 2.2s ease-in-out infinite}
         @keyframes breathe{0%{transform:scale(.985);box-shadow:0 0 0 rgba(73,168,76,0)}50%{transform:scale(1);box-shadow:0 10px 28px rgba(73,168,76,.18)}100%{transform:scale(.985);box-shadow:0 0 0 rgba(73,168,76,0)}}
