@@ -6,13 +6,13 @@ import LiveSimulator from "../../components/LiveSimulator"; // Pfad passt
 export default function DashboardPage() {
   // UI
   const [formOpen, setFormOpen] = useState(false);
-  const [launching, setLaunching] = useState(false); // für Raketen-Animation
+  const [launching, setLaunching] = useState(false);
   const formRef = useRef(null);
 
   // Prefill aus Simulator
   const [profile, setProfile] = useState({ name: "", address: "", url: "" });
   const [option, setOption]   = useState("123"); // "123" | "12" | "1" | "custom"
-  const [customText, setCustomText] = useState(""); // individueller Wunsch (Textfeld)
+  const [customText, setCustomText] = useState("");
 
   // Kontaktdaten
   const [company, setCompany]     = useState("");
@@ -51,13 +51,12 @@ export default function DashboardPage() {
     // Prefill direkt bei Mount
     pullFromSession();
 
-    // Auf Simulator-Start hören (frisches Profil)
+    // Frisch aus dem Simulator
     const onStart = (e) => {
       const { name = "", address = "", url = "" } = e.detail || {};
       setProfile({ name, address, url });
     };
 
-    // Option-Änderungen (im Simulator)
     const onOpt = () => {
       const opt = sessionStorage.getItem("sb_selected_option");
       if (opt) setOption(opt);
@@ -74,20 +73,18 @@ export default function DashboardPage() {
   // EIN großer CTA -> Formular öffnen
   const handleLaunch = () => {
     pullFromSession();
-    setLaunching(true);          // Rocket Lift-Off
-    setFormOpen(true);           // Drawer auf
-    // kleine Verzögerung bis Animation “fertig” wirkt
+    setLaunching(true);
+    setFormOpen(true);
     setTimeout(() => setLaunching(false), 800);
     scrollToForm();
   };
 
-  // Option lokal + persistieren
   const onOptionChange = (val) => {
     setOption(val);
     try { sessionStorage.setItem("sb_selected_option", val); } catch {}
   };
 
-  // Submit (nur Demo — kein Backend, damit Deploy clean bleibt)
+  // Submit (Demo – kein Backend)
   const onSubmit = (e) => {
     e.preventDefault();
     if (!googleProfileText.trim()) {
@@ -108,182 +105,184 @@ export default function DashboardPage() {
 
   return (
     <main className="sb-page-wrap">
-      {/* Live-Simulator oben */}
-      <div className="stars-bg">
+      {/* EIN großer, durchgehender Bereich mit DEMSELBEN Background wie im Simulator */}
+      <section className="stars-wrap">
         <LiveSimulator />
-      </div>
 
-      {/* EIN großer, pulsierender Rechteck-Button */}
-      <div className="cta-box">
-        <button
-          type="button"
-          className={`mega-cta ${launching ? "launch" : ""}`}
-          onClick={handleLaunch}
-          aria-label="Jetzt loslegen"
-        >
-          <span className="cta-label">Jetzt loslegen</span>
-          <span className="cta-rocket" aria-hidden>🚀</span>
-          <span className="pulse-ring" aria-hidden />
-        </button>
-      </div>
+        {/* EIN großer, pulsierender Rechteck-Button */}
+        <div className="cta-box">
+          <button
+            type="button"
+            className={`mega-cta ${launching ? "launch" : ""}`}
+            onClick={handleLaunch}
+            aria-label="Jetzt loslegen"
+          >
+            <span className="cta-label">Jetzt loslegen</span>
+            <span className="cta-rocket" aria-hidden>🚀</span>
+            <span className="pulse-ring" aria-hidden />
+          </button>
+        </div>
 
-      {/* Formular */}
-      <section ref={formRef} className={`drawer ${formOpen ? "open" : ""}`} aria-hidden={!formOpen}>
-        <form className="lead-form" onSubmit={onSubmit} autoComplete="on">
-          <h2 className="form-headline">Es kann gleich losgehen ✨</h2>
-          <p className="form-sub">
-            Bitte **alle Felder** ausfüllen (für den Vertriebseinsatz am Tablet optimiert).
-          </p>
+        {/* Formular (liegt IM selben Background-Bereich) */}
+        <section ref={formRef} className={`drawer ${formOpen ? "open" : ""}`} aria-hidden={!formOpen}>
+          <form className="lead-form" onSubmit={onSubmit} autoComplete="on">
+            <h2 className="form-headline">Es kann gleich losgehen ✨</h2>
+            <p className="form-sub">
+              Lass uns kurz das Formular ausfüllen – dann geht’s los. <strong>Alle Felder sind Pflicht.</strong>
+            </p>
 
-          {/* Google-Profil (Pflicht) */}
-          <div className="field">
-            <label>Google-Profil<span className="req">*</span></label>
-            <div className="profile-input">
-              <input
-                type="text"
-                value={googleProfileText}
-                readOnly
-                placeholder="Wird automatisch aus dem Live-Simulator übernommen"
-                required
-              />
-              {profile?.url ? (
-                <a className="profile-link" href={profile.url} target="_blank" rel="noreferrer">
-                  Profil öffnen ↗
-                </a>
-              ) : null}
-            </div>
-          </div>
-
-          {/* Auswahl: welche Bewertungen löschen */}
-          <div className="group">
-            <div className="group-title">Welche Bewertungen sollen gelöscht werden?<span className="req">*</span></div>
-            <div className="checks">
-              <label className={`choice ${option === "123" ? "on" : ""}`}>
-                <input
-                  type="radio"
-                  name="delopt"
-                  value="123"
-                  checked={option === "123"}
-                  onChange={() => onOptionChange("123")}
-                  required
-                />
-                <span className="mark" /> 1–3 ⭐ löschen
-              </label>
-
-              <label className={`choice ${option === "12" ? "on" : ""}`}>
-                <input
-                  type="radio"
-                  name="delopt"
-                  value="12"
-                  checked={option === "12"}
-                  onChange={() => onOptionChange("12")}
-                />
-                <span className="mark" /> 1–2 ⭐ löschen
-              </label>
-
-              <label className={`choice ${option === "1" ? "on" : ""}`}>
-                <input
-                  type="radio"
-                  name="delopt"
-                  value="1"
-                  checked={option === "1"}
-                  onChange={() => onOptionChange("1")}
-                />
-                <span className="mark" /> 1 ⭐ löschen
-              </label>
-
-              <label className={`choice ${option === "custom" ? "on" : ""}`}>
-                <input
-                  type="radio"
-                  name="delopt"
-                  value="custom"
-                  checked={option === "custom"}
-                  onChange={() => onOptionChange("custom")}
-                />
-                <span className="mark" /> Individuelle Löschungen
-              </label>
-            </div>
-
-            {option === "custom" && (
-              <div className="field">
-                <label>Individuelle Wünsche</label>
-                <textarea
-                  rows={4}
-                  placeholder="Beschreibe hier, welche Bewertungen/Wünsche du individuell hast…"
-                  value={customText}
-                  onChange={(e) => setCustomText(e.target.value)}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Kontaktdaten */}
-          <div className="group">
-            <div className="group-title">Kontaktdaten</div>
-
+            {/* Google-Profil (Pflicht) */}
             <div className="field">
-              <label>Firmenname<span className="req">*</span></label>
-              <input
-                type="text"
-                placeholder="z. B. Smashburger GmbH"
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="row">
-              <div className="field half">
-                <label>Vorname<span className="req">*</span></label>
+              <label>Google-Profil<span className="req">*</span></label>
+              <div className="profile-input">
                 <input
                   type="text"
-                  placeholder="Max"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
+                  value={googleProfileText}
+                  readOnly
+                  placeholder="Wird automatisch aus dem Live-Simulator übernommen"
                   required
                 />
+                {profile?.url ? (
+                  <a className="profile-link" href={profile.url} target="_blank" rel="noreferrer">
+                    Profil öffnen ↗
+                  </a>
+                ) : null}
               </div>
-              <div className="field half">
-                <label>Nachname<span className="req">*</span></label>
+            </div>
+
+            {/* Auswahl */}
+            <div className="group">
+              <div className="group-title">
+                Welche Bewertungen sollen gelöscht werden?<span className="req">*</span>
+              </div>
+              <div className="checks">
+                <label className={`choice ${option === "123" ? "on" : ""}`}>
+                  <input
+                    type="radio"
+                    name="delopt"
+                    value="123"
+                    checked={option === "123"}
+                    onChange={() => onOptionChange("123")}
+                    required
+                  />
+                  <span className="mark" /> 1–3 ⭐ löschen
+                </label>
+
+                <label className={`choice ${option === "12" ? "on" : ""}`}>
+                  <input
+                    type="radio"
+                    name="delopt"
+                    value="12"
+                    checked={option === "12"}
+                    onChange={() => onOptionChange("12")}
+                  />
+                  <span className="mark" /> 1–2 ⭐ löschen
+                </label>
+
+                <label className={`choice ${option === "1" ? "on" : ""}`}>
+                  <input
+                    type="radio"
+                    name="delopt"
+                    value="1"
+                    checked={option === "1"}
+                    onChange={() => onOptionChange("1")}
+                  />
+                  <span className="mark" /> 1 ⭐ löschen
+                </label>
+
+                <label className={`choice ${option === "custom" ? "on" : ""}`}>
+                  <input
+                    type="radio"
+                    name="delopt"
+                    value="custom"
+                    checked={option === "custom"}
+                    onChange={() => onOptionChange("custom")}
+                  />
+                  <span className="mark" /> Individuelle Löschungen
+                </label>
+              </div>
+
+              {option === "custom" && (
+                <div className="field">
+                  <label>Individuelle Wünsche</label>
+                  <textarea
+                    rows={4}
+                    placeholder="Beschreibe hier deine individuellen Wünsche…"
+                    value={customText}
+                    onChange={(e) => setCustomText(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Kontaktdaten */}
+            <div className="group">
+              <div className="group-title">Kontaktdaten</div>
+
+              <div className="field">
+                <label>Firmenname<span className="req">*</span></label>
                 <input
                   type="text"
-                  placeholder="Mustermann"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="z. B. Smashburger GmbH"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
                   required
                 />
+              </div>
+
+              <div className="row">
+                <div className="field half">
+                  <label>Vorname<span className="req">*</span></label>
+                  <input
+                    type="text"
+                    placeholder="Max"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="field half">
+                  <label>Nachname<span className="req">*</span></label>
+                  <input
+                    type="text"
+                    placeholder="Mustermann"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="row">
+                <div className="field half">
+                  <label>E-Mail<span className="req">*</span></label>
+                  <input
+                    type="email"
+                    placeholder="max@firma.de"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="field half">
+                  <label>Telefon<span className="req">*</span></label>
+                  <input
+                    type="tel"
+                    placeholder="+49 151 23456789"
+                    pattern="^\+?[0-9 ]{6,}$"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    required
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="row">
-              <div className="field half">
-                <label>E-Mail<span className="req">*</span></label>
-                <input
-                  type="email"
-                  placeholder="max@firma.de"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="field half">
-                <label>Telefon<span className="req">*</span></label>
-                <input
-                  type="tel"
-                  placeholder="+49 151 23456789"
-                  pattern="^\+?[0-9 ]{6,}$"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  required
-                />
-              </div>
+            <div className="actions">
+              <button type="submit" className="submit-btn">Auftrag bestätigen</button>
             </div>
-          </div>
-
-          <div className="actions">
-            <button type="submit" className="submit-btn">Auftrag bestätigen</button>
-          </div>
-        </form>
+          </form>
+        </section>
       </section>
 
       {/* Styles */}
@@ -292,10 +291,11 @@ export default function DashboardPage() {
 
         .sb-page-wrap{max-width:1208px;margin:0 auto;padding:0 12px 80px}
 
-        /* Hintergrund wie Live-Simulator */
-        .stars-bg{
+        /* Durchgehender Background (gleich wie Live-Simulator) */
+        .stars-wrap{
           border-radius:16px;
           background:url("https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689acdb9f72cb41186204eda_stars-rating.webp") center/cover no-repeat;
+          padding: 0 0 48px; /* reicht unten bis unters Formular */
         }
 
         /* EIN großer pulsierender Rechteck-CTA */
@@ -325,13 +325,13 @@ export default function DashboardPage() {
           50%{box-shadow:0 0 0 26px rgba(73,168,76,.14)}
           100%{box-shadow:0 0 0 0 rgba(73,168,76,.0)}
         }
-        /* Lift-Off beim Klick */
         .mega-cta.launch .cta-rocket{transform:translateY(-12px) translateX(6px) rotate(-8deg)}
-        
-        /* Drawer */
+
+        /* Drawer – Glaslook, aber transparent genug, damit der Hintergrund NICHT „blanko“ wirkt */
         .drawer{
           max-width:880px;margin:18px auto 0;
-          background:rgba(255,255,255,.9);backdrop-filter:blur(8px);
+          background:rgba(255,255,255,.88);
+          /* KEIN zusätzlicher Overlay, kein Abdunkeln des BG */
           border:1px solid rgba(0,0,0,.06);border-radius:16px;
           box-shadow:0 20px 60px rgba(0,0,0,.12);
           overflow:hidden;transform:translateY(-6px) scale(.985);opacity:0;pointer-events:none;
