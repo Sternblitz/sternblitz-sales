@@ -34,24 +34,24 @@ export default function DashboardPage() {
     return `${name}${address ? ", " + address : ""}`;
   }, [profile]);
 
-  // Prefill aus sessionStorage holen
-  const pullFromSession = () => {
-    try {
-      const raw = sessionStorage.getItem("sb_selected_profile");
-      if (raw) {
-        const p = JSON.parse(raw);
-        setProfile({
-          name: p?.name || "",
-          address: p?.address || "",
-          url: p?.url || "",
-        });
-      }
-      const opt = sessionStorage.getItem("sb_selected_option");
-      if (opt) setOption(opt);
-    } catch {
-      /* ignore */
+// Prefill aus sessionStorage holen
+const pullFromSession = () => {
+  try {
+    const raw = sessionStorage.getItem("sb_selected_profile");
+    if (raw) {
+      const p = JSON.parse(raw);
+      setProfile({
+        name: p?.name || "",
+        address: p?.address || "",
+        url: p?.url || "",
+      });
     }
-  };
+    const opt = sessionStorage.getItem("sb_selected_option");
+    if (opt) setOption(opt);
+  } catch {
+    /* ignore */
+  }
+};
 
   useEffect(() => {
     pullFromSession();
