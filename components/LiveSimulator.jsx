@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import dynamic from "next/dynamic";
-
-// IMPORTANT: file must be exactly components/LiveSimulator.jsx (case sensitive on Linux/Vercel)
-const LiveSimulator = dynamic(() => import("../../components/LiveSimulator"), { ssr: false });
+import LiveSimulator from "../../components/LiveSimulator"; // <- korrekter Pfad (app/dashboard -> ../.. -> components)
 
 export default function DashboardPage() {
   // --- UI / Offen-States ---
@@ -27,7 +24,7 @@ export default function DashboardPage() {
   const googleProfileText = useMemo(() => {
     const { name, address } = profile || {};
     if (!name && !address) return "";
-    return `${name}${address ? ", " + address : ""}`;
+    return ${name}${address ? ", " + address : ""};
   }, [profile]);
 
   // Prefill aus sessionStorage holen
@@ -100,7 +97,7 @@ export default function DashboardPage() {
       sessionStorage.setItem("sb_checkout_payload", JSON.stringify(payload));
     } catch {}
 
-    // Hier später: fetch("/api/lead", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)})
+    // Hier später: fetch("/api/lead", {method:"POST", body: JSON.stringify(payload)})
     console.log("Lead payload:", payload);
     alert("Top! Wir haben deine Angaben vorgemerkt. (Nächster Schritt: PDF/Signatur/AGB)");
   };
@@ -113,7 +110,7 @@ export default function DashboardPage() {
 
         {/* 2) Stufe 1: schlanker CTA */}
         <div className="cta-stage1">
-          <button className={`pill-btn ${showStage2 ? "on" : ""}`} onClick={handleStage1}>
+          <button className={pill-btn ${showStage2 ? "on" : ""}} onClick={handleStage1}>
             Jetzt loslegen
           </button>
         </div>
@@ -121,7 +118,7 @@ export default function DashboardPage() {
         {/* 3) Stufe 2: großer Raketen-Button */}
         {showStage2 && (
           <div className="cta-stage2">
-            <button className={`rocket-btn ${formOpen ? "active" : ""}`} onClick={handleStage2}>
+            <button className={rocket-btn ${formOpen ? "active" : ""}} onClick={handleStage2}>
               <span className="emoji">🚀</span>
               <span>Jetzt loslegen</span>
             </button>
@@ -132,7 +129,7 @@ export default function DashboardPage() {
         )}
 
         {/* 4) Formular: elegant aufklappbar */}
-        <div className={`drawer ${formOpen ? "open" : ""}`} aria-hidden={!formOpen}>
+        <div className={drawer ${formOpen ? "open" : ""}} aria-hidden={!formOpen}>
           <form className="lead-form" onSubmit={onSubmit} autoComplete="on">
             {/* Google-Profil */}
             <div className="field">
@@ -156,7 +153,7 @@ export default function DashboardPage() {
             <div className="group">
               <div className="group-title">Welche Bewertungen sollen gelöscht werden?</div>
               <div className="checks">
-                <label className={`choice ${option === "123" ? "on" : ""}`}>
+                <label className={choice ${option === "123" ? "on" : ""}}>
                   <input
                     type="radio"
                     name="delopt"
@@ -167,7 +164,7 @@ export default function DashboardPage() {
                   <span className="mark" /> 1–3 ⭐ löschen
                 </label>
 
-                <label className={`choice ${option === "12" ? "on" : ""}`}>
+                <label className={choice ${option === "12" ? "on" : ""}}>
                   <input
                     type="radio"
                     name="delopt"
@@ -178,7 +175,7 @@ export default function DashboardPage() {
                   <span className="mark" /> 1–2 ⭐ löschen
                 </label>
 
-                <label className={`choice ${option === "1" ? "on" : ""}`}>
+                <label className={choice ${option === "1" ? "on" : ""}}>
                   <input
                     type="radio"
                     name="delopt"
@@ -189,7 +186,7 @@ export default function DashboardPage() {
                   <span className="mark" /> 1 ⭐ löschen
                 </label>
 
-                <label className={`choice ${option === "custom" ? "on" : ""}`}>
+                <label className={choice ${option === "custom" ? "on" : ""}}>
                   <input
                     type="radio"
                     name="delopt"
@@ -389,4 +386,4 @@ export default function DashboardPage() {
       `}</style>
     </>
   );
-}
+} 
