@@ -5,6 +5,7 @@ import LiveSimulator from "../../components/LiveSimulator"; // unverändert lass
 
 export default function DashboardPage() {
   const [formOpen, setFormOpen] = useState(false);
+  const [blast, setBlast] = useState(false); // für Raketen-Animation
 
   // Auswahl aus dem Simulator
   const [option, setOption] = useState("123"); // "123" | "12" | "1" | "custom"
@@ -65,11 +66,16 @@ export default function DashboardPage() {
     };
   }, []);
 
-  // Einmalig beim Öffnen nochmal ziehen (falls Nutzer manuell tippt)
-  const openForm = () => {
+  // Einmalig beim Öffnen nochmal ziehen + Rakete animieren
+  const openFormWithBlast = () => {
     pullLatest();
-    setFormOpen(true);
-    setTimeout(scrollToForm, 20);
+    setBlast(true);
+    // kurze Flugzeit, dann Formular öffnen + scrollen
+    setTimeout(() => {
+      setFormOpen(true);
+      setTimeout(scrollToForm, 30);
+      setTimeout(() => setBlast(false), 300); // Klasse wieder entfernen
+    }, 260);
   };
 
   // Google Places Autocomplete auch im Formular (bearbeitbar)
@@ -139,11 +145,15 @@ export default function DashboardPage() {
       {/* Live-Simulator */}
       <LiveSimulator />
 
-      {/* EIN Button (schwarz) */}
+      {/* EIN Button (schwarz) mit Rakete */}
       {!formOpen && (
         <div className="cta">
-          <button className="primary-btn" onClick={openForm}>
-            Jetzt loslegen
+          <button
+            className={`primary-btn ${blast ? "blast" : ""}`}
+            onClick={openFormWithBlast}
+          >
+            <span className="label">Jetzt loslegen</span>
+            <span className="rocket" aria-hidden>🚀</span>
           </button>
         </div>
       )}
@@ -157,7 +167,7 @@ export default function DashboardPage() {
         <header className="drawer-head">
           <h2 className="title">Es kann gleich losgehen ✨</h2>
           <p className="sub">
-            Bitte kurz ausfüllen – dann bestätigen wir den Auftrag direkt.
+            Bitte alle Felder ausfüllen. Mit <span className="req">*</span> markiert = Pflicht.
           </p>
         </header>
 
@@ -210,7 +220,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Welche Bewertungen sollen gelöscht werden? (Cards-Grid wie vorher) */}
+          {/* Welche Bewertungen sollen gelöscht werden? */}
           <div className="group">
             <div className="group-title">
               Welche Bewertungen sollen gelöscht werden? <span className="req">*</span>
@@ -253,7 +263,7 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Kontaktdaten – kompaktere Inputs + mehr Luft nach Telefon */}
+          {/* Kontaktdaten */}
           <div className="group">
             <div className="group-title">Kontaktdaten</div>
 
@@ -344,7 +354,7 @@ export default function DashboardPage() {
           padding: 0 12px 80px;
         }
 
-        /* EIN Button (schwarz) */
+        /* EIN Button (schwarz) mit Rakete */
         .cta {
           display: flex;
           justify-content: center;
@@ -355,24 +365,44 @@ export default function DashboardPage() {
           border: 1px solid #0b0b0b;
           background: #0b0b0b;
           color: #fff;
-          padding: 14px 22px;
-          border-radius: 999px;
+          padding: 14px 24px;
+          border-radius: 16px;
           font-weight: 800;
           letter-spacing: 0.2px;
           box-shadow: 0 10px 26px rgba(0, 0, 0, 0.2);
           transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.2s ease;
+          display: inline-flex;
+          gap: 10px;
+          align-items: center;
+          position: relative;
+          overflow: hidden;
+          animation: pulseBtn 2.2s ease-in-out infinite;
         }
         .primary-btn:hover {
           transform: translateY(-1px);
           background: #111;
           box-shadow: 0 14px 32px rgba(0, 0, 0, 0.28);
         }
+        .label { font-size: 16px; }
+        .rocket { display: inline-block; transition: transform .25s ease; }
+        .primary-btn.blast .rocket { transform: translateY(-18px) translateX(6px) rotate(-12deg) scale(1.08); }
+        @keyframes pulseBtn {
+          0% { transform: scale(.995) }
+          50% { transform: scale(1) }
+          100% { transform: scale(.995) }
+        }
 
-        /* Drawer (hellblauer Verlauf bleibt) */
+        /* Formular-Box mit DEM Live-Simulator-Hintergrund in der Box */
+        /* (selbes Bild wie im Simulator) */
         .drawer {
+          --box-bg: url("https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689acdb9f72cb41186204eda_stars-rating.webp");
           max-width: 900px;
           margin: 20px auto 0;
-          background: linear-gradient(135deg, #dbedff 0%, #ffffff 80%);
+          background:
+            linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,.95)),
+            var(--box-bg);
+          background-size: cover;
+          background-position: center;
           border: 1px solid rgba(0, 0, 0, 0.06);
           border-radius: 20px;
           box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
@@ -423,7 +453,7 @@ export default function DashboardPage() {
           font-weight: 800;
         }
 
-        /* Google-Profil: wieder breit + Clear-X + Profil öffnen Button */
+        /* Google-Profil: breit + Clear-X + Profil öffnen Button */
         .profile-row {
           display: flex;
           align-items: center;
@@ -437,10 +467,10 @@ export default function DashboardPage() {
         }
         .profile-input input {
           width: 100%;
-          height: 36px; /* kompakter */
+          height: 36px;
           border-radius: 10px;
           border: 1px solid rgba(0, 0, 0, 0.12);
-          padding: 8px 34px 8px 12px; /* Platz für X rechts */
+          padding: 8px 34px 8px 12px;
           font-size: 15px;
           background: #fff;
           transition: border-color 0.16s ease, box-shadow 0.16s ease;
@@ -537,7 +567,7 @@ export default function DashboardPage() {
           border-radius: 2px;
         }
 
-        /* Inputs kompakter + mehr Luft nach Telefon */
+        /* Inputs kompakt */
         .field {
           display: flex;
           flex-direction: column;
@@ -551,7 +581,7 @@ export default function DashboardPage() {
         }
         .field input,
         .field textarea {
-          height: 34px; /* kompakter als zuvor */
+          height: 34px;
           border-radius: 10px;
           border: 1px solid rgba(0, 0, 0, 0.12);
           padding: 6px 10px;
@@ -576,15 +606,10 @@ export default function DashboardPage() {
           flex: 1;
         }
 
-        /* Extra Luft nach der Telefon-Reihe */
-        .group:last-of-type .row:last-of-type {
-          margin-bottom: 12px;
-        }
-
         .actions {
           display: flex;
           justify-content: flex-end;
-          margin-top: 6px;
+          margin-top: 10px;
         }
         .submit-btn {
           background: #0b0b0b;
