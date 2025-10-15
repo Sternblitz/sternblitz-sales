@@ -1,28 +1,33 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import LiveSimulator from "../../components/LiveSimulator"; // case-sensitive
+import LiveSimulator from "../../components/LiveSimulator"; // WICHTIG: Groß-/Kleinschreibung!
 
 export default function DashboardPage() {
+  // Offen-States
   const [showStage2, setShowStage2] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
 
+  // Prefill aus Simulator
   const [profile, setProfile] = useState({ name: "", address: "", url: "" });
-  const [option, setOption]   = useState("123"); // "123" | "12" | "1" | "custom"
+  const [option, setOption] = useState("123"); // "123" | "12" | "1" | "custom"
 
+  // Formularfelder
   const [customCount, setCustomCount] = useState("");
-  const [company, setCompany]         = useState("");
-  const [firstName, setFirstName]     = useState("");
-  const [lastName, setLastName]       = useState("");
-  const [email, setEmail]             = useState("");
-  const [phone, setPhone]             = useState("");
+  const [company, setCompany] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
 
+  // Profilanzeige
   const googleProfileText = useMemo(() => {
     const { name, address } = profile || {};
     if (!name && !address) return "";
     return `${name}${address ? ", " + address : ""}`;
   }, [profile]);
 
+  // Session auslesen (keine Kommentare im Objekt!)
   const pullFromSession = () => {
     try {
       const raw = sessionStorage.getItem("sb_selected_profile");
@@ -50,21 +55,17 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const handleStage1 = () => {
-    pullFromSession();
-    setShowStage2(true);
-  };
+  // CTA-Handler
+  const handleStage1 = () => { pullFromSession(); setShowStage2(true); };
+  const handleStage2 = () => { pullFromSession(); setFormOpen((v) => !v); };
 
-  const handleStage2 = () => {
-    pullFromSession();
-    setFormOpen(v => !v);
-  };
-
+  // Option merken
   const onOptionChange = (val) => {
     setOption(val);
     try { sessionStorage.setItem("sb_selected_option", val); } catch {}
   };
 
+  // Submit (Demo)
   const onSubmit = (e) => {
     e.preventDefault();
     const payload = {
@@ -81,14 +82,17 @@ export default function DashboardPage() {
   return (
     <>
       <div className="dashboard-wrap">
+        {/* 1) Live-Simulator (unverändert) */}
         <LiveSimulator />
 
+        {/* 2) Stufe 1 */}
         <div className="cta-stage1">
           <button className={`pill-btn ${showStage2 ? "on" : ""}`} onClick={handleStage1}>
             Jetzt loslegen
           </button>
         </div>
 
+        {/* 3) Stufe 2 */}
         {showStage2 && (
           <div className="cta-stage2">
             <button className={`rocket-btn ${formOpen ? "active" : ""}`} onClick={handleStage2}>
@@ -101,6 +105,7 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* 4) Formular */}
         <div className={`drawer ${formOpen ? "open" : ""}`} aria-hidden={!formOpen}>
           <form className="lead-form" onSubmit={onSubmit} autoComplete="on">
             <div className="field">
@@ -151,8 +156,15 @@ export default function DashboardPage() {
               {option === "custom" && (
                 <div className="field inline">
                   <label>Wie viele sollen gelöscht werden?</label>
-                  <input type="number" min="1" step="1" placeholder="z. B. 17"
-                    value={customCount} onChange={(e) => setCustomCount(e.target.value)} required />
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    placeholder="z. B. 17"
+                    value={customCount}
+                    onChange={(e) => setCustomCount(e.target.value)}
+                    required
+                  />
                 </div>
               )}
             </div>
@@ -162,33 +174,57 @@ export default function DashboardPage() {
 
               <div className="field">
                 <label>Firmenname</label>
-                <input type="text" placeholder="z. B. Smashburger GmbH"
-                  value={company} onChange={(e) => setCompany(e.target.value)} required />
+                <input
+                  type="text"
+                  placeholder="z. B. Smashburger GmbH"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  required
+                />
               </div>
 
               <div className="row">
                 <div className="field half">
                   <label>Vorname</label>
-                  <input type="text" placeholder="Max"
-                    value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+                  <input
+                    type="text"
+                    placeholder="Max"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    required
+                  />
                 </div>
                 <div className="field half">
                   <label>Nachname</label>
-                  <input type="text" placeholder="Mustermann"
-                    value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+                  <input
+                    type="text"
+                    placeholder="Mustermann"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    required
+                  />
                 </div>
               </div>
 
               <div className="row">
                 <div className="field half">
                   <label>E-Mail</label>
-                  <input type="email" placeholder="max@firma.de"
-                    value={email} onChange={(e) => setEmail(e.target.value)} required />
+                  <input
+                    type="email"
+                    placeholder="max@firma.de"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
                 </div>
                 <div className="field half">
                   <label>Telefon</label>
-                  <input type="tel" placeholder="+49…"
-                    value={phone} onChange={(e) => setPhone(e.target.value)} />
+                  <input
+                    type="tel"
+                    placeholder="+49…"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                  />
                 </div>
               </div>
             </div>
@@ -200,6 +236,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Styles unverändert zu deiner Version */}
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Outfit:wght@400;600;700&display=swap');
 
