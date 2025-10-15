@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import LiveSimulator from "@/components/livesimulator"; // <- dein Pfad
+import LiveSimulator from "../../components/LiveSimulator";// <- dein Pfad
 
 export default function DashboardPage() {
   // --- UI / Offen-States ---
