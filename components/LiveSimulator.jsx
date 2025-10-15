@@ -381,6 +381,21 @@ export default function LiveSimulator() {
             window.sbFetchData = fetchData;
           })();
       `}</Script>
+      <Script id="sb-attach-fetch" strategy="afterInteractive">
+  {`
+    // Stelle sicher, dass window.sbFetchData aus dem Simulator-Logic-Skript global verfügbar ist
+    window.addEventListener("DOMContentLoaded", () => {
+      if (typeof window.sbFetchData === "function") {
+        console.log("[Sternblitz] Simulator bereit");
+      } else {
+        console.warn("[Sternblitz] sbFetchData nicht verfügbar – versuche später erneut...");
+        setTimeout(() => {
+          if (typeof window.sbFetchData === "function") console.log("[Sternblitz] Simulator nachgeladen.");
+        }, 1500);
+      }
+    });
+  `}
+</Script>
 
       {/* 5) CSS 1:1 + Mobile-Fixes */}
       <style jsx global>{`
