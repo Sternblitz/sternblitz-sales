@@ -29,29 +29,24 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="login-wrap">
-      <section className="login-card">
-        {/* Logo */}
-        <div className="logo-row">
+    <main className="login-bg">
+      <section className="login-box">
+        {/* Logo + Titel */}
+        <div className="head">
           <img
             src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/68ad4679902a5d278c4cf0bc_Group%202085662922-p-500.png"
             alt="Sternblitz Logo"
             className="logo"
           />
-          <h1 className="title">Sternblitz Vertriebsplattform</h1>
+          <h1 className="headline">Sternblitz-Salesplattform</h1>
+          <p className="subtitle">Die All-in-One-Lösung</p>
         </div>
 
-        {/* Value Props (klein, untereinander) */}
-        <ul className="props">
-          <li>Live-Simulator direkt im Pitch</li>
-          <li>Digitale Abschlüsse in Minuten</li>
-          <li>Pay-after-Success — 299 € Reverse-Charge</li>
-          <li>Echtzeit-Tracking für Teamleiter</li>
-        </ul>
-
-        {/* Login Formular */}
+        {/* Formular */}
         <form onSubmit={onLogin} className="form">
-          <label className="label">E-Mail</label>
+          <h2 className="login-text">Login</h2>
+
+          <label className="label">E-Mail-Adresse</label>
           <input
             className="input"
             autoComplete="email"
@@ -86,78 +81,81 @@ export default function LoginPage() {
         </form>
       </section>
 
-      {/* Styles im selben File – nutzt deine Live-Simulator Optik */}
+      {/* Styling */}
       <style jsx>{`
-        :global(html), :global(body) { height: 100%; }
-        .login-wrap {
+        .login-bg {
           min-height: 100vh;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 40px 12px;
+          padding: 40px 14px;
           background: url("https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689acdb9f72cb41186204eda_stars-rating.webp")
                       center/cover no-repeat;
-          font-family: 'Poppins', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+          font-family: 'Poppins', ui-sans-serif, system-ui, -apple-system;
         }
 
-        .login-card {
+        .login-box {
           width: 100%;
-          max-width: 720px;                 /* eine schmale Karte, wirkt edel */
+          max-width: 480px;
           background: #fff;
-          border-radius: 16px;
-          box-shadow: 0 6px 28px rgba(0,0,0,.10);
-          padding: 26px 20px 22px;
-        }
-
-        .logo-row {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          justify-content: center;
-          margin-bottom: 10px;
-        }
-        .logo { height: 46px; width: auto; }
-        .title {
-          margin: 0;
-          font-family: 'Outfit', sans-serif;
-          font-size: 22px;
-          font-weight: 600;
-          color: #010101;
+          border-radius: 18px;
+          padding: 32px 26px 26px;
+          box-shadow: 0 6px 30px rgba(0,0,0,.12);
           text-align: center;
         }
 
-        .props {
-          margin: 8px auto 18px;
-          padding: 0 16px;
-          list-style: none;
-          max-width: 540px;
-          color: rgba(1,1,1,.78);
-          font-size: 14px;
-          line-height: 1.55;
-        }
-        .props li { margin: 6px 0; text-align: center; }
-
-        .form {
-          width: 100%;
-          max-width: 520px;
-          margin: 0 auto;
+        .head {
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          align-items: center;
+          margin-bottom: 22px;
+        }
+        .logo {
+          height: 72px;
+          width: auto;
+          margin-bottom: 8px;
+        }
+        .headline {
+          font-family: 'Outfit', sans-serif;
+          font-size: 24px;
+          font-weight: 700;
+          color: #010101;
+          margin: 0;
+        }
+        .subtitle {
+          font-family: 'Poppins', sans-serif;
+          font-size: 15px;
+          color: rgba(1,1,1,.7);
+          font-weight: 500;
+          margin-top: 4px;
+        }
+
+        .form {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          margin-top: 10px;
+        }
+        .login-text {
+          font-size: 20px;
+          font-weight: 700;
+          color: #000;
+          margin-bottom: 6px;
         }
         .label {
-          font-size: 12px;
-          color: #374151;
-          margin-top: 8px;
+          font-size: 13px;
+          color: #333;
+          text-align: left;
+          margin-top: 6px;
         }
         .input {
           width: 100%;
           padding: 12px 14px;
-          border: 1px solid rgba(1,1,1,.10);
+          border: 1px solid rgba(1,1,1,.12);
           border-radius: 12px;
           font-size: 16px;
           outline: none;
-          transition: box-shadow .15s ease, border-color .15s ease;
+          transition: all .2s ease;
         }
         .input:focus {
           border-color: #49a84c;
@@ -175,6 +173,7 @@ export default function LoginPage() {
           border: 1px solid #e5e7eb;
           background: #fff;
           cursor: pointer;
+          font-size: 13px;
         }
 
         .msg { margin: 6px 0 0; font-size: 14px; }
@@ -182,39 +181,33 @@ export default function LoginPage() {
         .msg.ok { color: #065f46; }
 
         .cta {
-          margin-top: 14px;
+          margin-top: 16px;
           width: 100%;
-          padding: 12px 14px;
+          padding: 13px 14px;
           border-radius: 12px;
           background: linear-gradient(90deg, #000, #333);
           color: #fff;
           font-weight: 600;
           border: 0;
           cursor: pointer;
-          transition: filter .2s ease, transform .06s ease;
+          transition: transform .05s ease, filter .2s ease;
         }
-        .cta:hover { filter: brightness(1.05); }
+        .cta:hover { filter: brightness(1.07); }
         .cta:active { transform: translateY(1px); }
 
         .hint {
-          margin-top: 10px;
-          font-size: 12px;
+          margin-top: 14px;
+          font-size: 13px;
           color: #6b7280;
-          text-align: center;
         }
 
-        /* Responsive – eine Spalte bleibt erhalten, nur Abstände skalieren */
-        @media (max-width: 768px) {
-          .login-card { padding: 22px 14px 18px; }
-          .title { font-size: 20px; }
-          .logo { height: 40px; }
-          .props { font-size: 13px; }
-        }
         @media (max-width: 480px) {
-          .login-wrap { padding: 24px 10px; }
-          .login-card { border-radius: 12px; }
-          .title { font-size: 18px; }
-          .props { font-size: 12.5px; }
+          .login-box { padding: 26px 18px 20px; border-radius: 14px; }
+          .headline { font-size: 21px; }
+          .logo { height: 60px; }
+          .subtitle { font-size: 14px; }
+          .login-text { font-size: 18px; }
+          .input { font-size: 15px; }
         }
       `}</style>
     </main>
