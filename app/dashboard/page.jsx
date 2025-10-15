@@ -5,7 +5,7 @@ import LiveSimulator from "../../components/LiveSimulator"; // unverändert lass
 
 export default function DashboardPage() {
   const [formOpen, setFormOpen] = useState(false);
-  const [blast, setBlast] = useState(false); // für Raketen-Animation
+  const [blast, setBlast] = useState(false); // Raketen-Animation
 
   // Auswahl aus dem Simulator
   const [option, setOption] = useState("123"); // "123" | "12" | "1" | "custom"
@@ -66,15 +66,14 @@ export default function DashboardPage() {
     };
   }, []);
 
-  // Einmalig beim Öffnen nochmal ziehen + Rakete animieren
+  // EIN Button -> frische Daten ziehen, Rakete kurz "fliegen", Formular öffnen
   const openFormWithBlast = () => {
     pullLatest();
     setBlast(true);
-    // kurze Flugzeit, dann Formular öffnen + scrollen
     setTimeout(() => {
       setFormOpen(true);
       setTimeout(scrollToForm, 30);
-      setTimeout(() => setBlast(false), 300); // Klasse wieder entfernen
+      setTimeout(() => setBlast(false), 300);
     }, 260);
   };
 
@@ -105,7 +104,7 @@ export default function DashboardPage() {
     } catch (e) {
       console.warn("Form autocomplete init error:", e);
     }
-  }, [formOpen]); // initialisieren wenn das Formular sichtbar wird
+  }, [formOpen]);
 
   const onOptionChange = (val) => {
     setOption(val);
@@ -145,7 +144,7 @@ export default function DashboardPage() {
       {/* Live-Simulator */}
       <LiveSimulator />
 
-      {/* EIN Button (schwarz) mit Rakete */}
+      {/* EIN Button (schwarz, mit 🚀) */}
       {!formOpen && (
         <div className="cta">
           <button
@@ -354,7 +353,7 @@ export default function DashboardPage() {
           padding: 0 12px 80px;
         }
 
-        /* EIN Button (schwarz) mit Rakete */
+        /* EIN Button (schwarz) mit 🚀 */
         .cta {
           display: flex;
           justify-content: center;
@@ -392,17 +391,11 @@ export default function DashboardPage() {
           100% { transform: scale(.995) }
         }
 
-        /* Formular-Box mit DEM Live-Simulator-Hintergrund in der Box */
-        /* (selbes Bild wie im Simulator) */
+        /* Drawer: GRÜN -> WEISS Verlauf (nur in der Box) */
         .drawer {
-          --box-bg: url("https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689acdb9f72cb41186204eda_stars-rating.webp");
           max-width: 900px;
           margin: 20px auto 0;
-          background:
-            linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,.95)),
-            var(--box-bg);
-          background-size: cover;
-          background-position: center;
+          background: linear-gradient(135deg, #e6f6ea 0%, #ffffff 80%);
           border: 1px solid rgba(0, 0, 0, 0.06);
           border-radius: 20px;
           box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
@@ -467,10 +460,10 @@ export default function DashboardPage() {
         }
         .profile-input input {
           width: 100%;
-          height: 36px;
+          height: 36px; /* kompakter */
           border-radius: 10px;
           border: 1px solid rgba(0, 0, 0, 0.12);
-          padding: 8px 34px 8px 12px;
+          padding: 8px 34px 8px 12px; /* Platz für X rechts */
           font-size: 15px;
           background: #fff;
           transition: border-color 0.16s ease, box-shadow 0.16s ease;
@@ -567,7 +560,7 @@ export default function DashboardPage() {
           border-radius: 2px;
         }
 
-        /* Inputs kompakt */
+        /* Inputs kompakter */
         .field {
           display: flex;
           flex-direction: column;
@@ -581,7 +574,7 @@ export default function DashboardPage() {
         }
         .field input,
         .field textarea {
-          height: 34px;
+          height: 34px; /* kompakter als zuvor */
           border-radius: 10px;
           border: 1px solid rgba(0, 0, 0, 0.12);
           padding: 6px 10px;
@@ -606,10 +599,15 @@ export default function DashboardPage() {
           flex: 1;
         }
 
+        /* Extra Luft nach der Telefon-Reihe */
+        .group:last-of-type .row:last-of-type {
+          margin-bottom: 12px;
+        }
+
         .actions {
           display: flex;
           justify-content: flex-end;
-          margin-top: 10px;
+          margin-top: 6px;
         }
         .submit-btn {
           background: #0b0b0b;
