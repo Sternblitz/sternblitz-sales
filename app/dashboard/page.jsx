@@ -1,67 +1,76 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import LiveSimulator from "../../components/LiveSimulator"; // Pfad passt
+import Script from "next/script";
+import LiveSimulator from "../../components/LiveSimulator"; // Pfad zu deinem Simulator
 
 export default function DashboardPage() {
-  // UI
+  // Sichtbarkeit Formular + Scroll
   const [formOpen, setFormOpen] = useState(false);
-  const [launching, setLaunching] = useState(false);
   const formRef = useRef(null);
 
   // Prefill aus Simulator
   const [profile, setProfile] = useState({ name: "", address: "", url: "" });
-  const [option, setOption]   = useState("123"); // "123" | "12" | "1" | "custom"
-  const [customText, setCustomText] = useState("");
+
+  // Eingabefeld-Text im Formular (editierbar + clearbar)
+  const [profileInput, setProfileInput] = useState("");
+
+  // Bewertungsoptionen
+  const [option, setOption] = useState("123"); // "123" | "12" | "1" | "custom"
+  const [customNotes, setCustomNotes] = useState(""); // Textfeld statt Zahl
 
   // Kontaktdaten
-  const [company, setCompany]     = useState("");
+  const [company, setCompany] = useState(""); // optional gelassen
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName]   = useState("");
   const [email, setEmail]         = useState("");
   const [phone, setPhone]         = useState("");
 
-  // Readable Profil-Text
+  // Anzeige-String (Name, Adresse)
   const googleProfileText = useMemo(() => {
-    const { name, address } = profile || {};
-    if (!name && !address) return "";
-    return `${name}${address ? ", " + address : ""}`;
+    if (!profile?.name && !profile?.address) return "";
+    return `${profile.name || ""}${profile.address ? ", " + profile.address : ""}`;
   }, [profile]);
 
-  // sessionStorage + Events vom Simulator
-  const pullFromSession = () => {
-    try {
-      const raw = sessionStorage.getItem("sb_selected_profile");
-      if (raw) {
-        const p = JSON.parse(raw);
-        setProfile({ name: p?.name || "", address: p?.address || "", url: p?.url || "" });
-      }
-      const opt = sessionStorage.getItem("sb_selected_option");
-      if (opt) setOption(opt);
-    } catch {}
-  };
-
+  // Smooth scroll
   const scrollToForm = () => {
     if (formRef.current) {
       formRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
 
+  // Beim ersten Render: aus sessionStorage ziehen (z. B. nach Reload)
   useEffect(() => {
-    // Prefill direkt bei Mount
-    pullFromSession();
+    try {
+      const raw = sessionStorage.getItem("sb_selected_profile");
+      if (raw) {
+        const p = JSON.parse(raw);
+        const fresh = { name: p?.name || "", address: p?.address || "", url: p?.url || "" };
+        setProfile(fresh);
+        setProfileInput(
+          [fresh.name, fresh.address].filter(Boolean).join(", ")
+        );
+      }
+      const opt = sessionStorage.getItem("sb_selected_option");
+      if (opt) setOption(opt);
+    } catch {}
+  }, []);
 
-    // Frisch aus dem Simulator
+  // Events vom Simulator (immer das frischeste Profil nehmen)
+  useEffect(() => {
     const onStart = (e) => {
       const { name = "", address = "", url = "" } = e.detail || {};
-      setProfile({ name, address, url });
+      const fresh = { name, address, url };
+      setProfile(fresh);
+      setProfileInput([name, address].filter(Boolean).join(", "));
+      setOption(sessionStorage.getItem("sb_selected_option") || "123");
+      setFormOpen(true);
+      scrollToForm();
     };
-
     const onOpt = () => {
       const opt = sessionStorage.getItem("sb_selected_option");
       if (opt) setOption(opt);
     };
-
     window.addEventListener("sb:simulator-start", onStart);
     window.addEventListener("sb:option-changed", onOpt);
     return () => {
@@ -70,312 +79,364 @@ export default function DashboardPage() {
     };
   }, []);
 
-  // EIN großer CTA -> Formular öffnen
-  const handleLaunch = () => {
-    pullFromSession();
-    setLaunching(true);
+  // Einziger CTA: öffnet das Formular
+  const handleOpenForm = () => {
+    // Frisch aus Session ziehen, damit es nicht „stale“ ist
+    try {
+      const raw = sessionStorage.getItem("sb_selected_profile");
+      if (raw) {
+        const p = JSON.parse(raw);
+        const fresh = { name: p?.name || "", address: p?.address || "", url: p?.url || "" };
+        setProfile(fresh);
+        setProfileInput([fresh.name, fresh.address].filter(Boolean).join(", "));
+      }
+      const opt = sessionStorage.getItem("sb_selected_option");
+      if (opt) setOption(opt);
+    } catch {}
     setFormOpen(true);
-    setTimeout(() => setLaunching(false), 800);
     scrollToForm();
   };
 
+  // Radiobutton-Wechsel (auch in Session mitschreiben)
   const onOptionChange = (val) => {
     setOption(val);
     try { sessionStorage.setItem("sb_selected_option", val); } catch {}
   };
 
-  // Submit (Demo – kein Backend)
+  // Clear-Button (X) beim Google-Profil
+  const clearProfileInput = () => {
+    setProfile({ name: "", address: "", url: "" });
+    setProfileInput("");
+  };
+
+  // Google Places Autocomplete im Formularfeld (nur wenn API schon da)
+  const orderInputRef = useRef(null);
+  useEffect(() => {
+    if (!formOpen) return;
+    // erst NACH Öffnen des Formulars versuchen
+    const g = typeof window !== "undefined" ? window.google : null;
+    if (!g?.maps?.places || !orderInputRef.current) return;
+
+    try {
+      const ac = new g.maps.places.Autocomplete(orderInputRef.current, {
+        types: ["establishment"],
+        fields: ["name", "formatted_address", "url", "place_id"],
+      });
+      ac.addListener("place_changed", () => {
+        const place = ac.getPlace();
+        const name = place?.name || "";
+        const address = place?.formatted_address || "";
+        const url = place?.url || "";
+        const sel = { name, address, url };
+        setProfile(sel);
+        setProfileInput([name, address].filter(Boolean).join(", "));
+        try { sessionStorage.setItem("sb_selected_profile", JSON.stringify(sel)); } catch {}
+      });
+    } catch {}
+  }, [formOpen]);
+
+  // Submit
   const onSubmit = (e) => {
     e.preventDefault();
-    if (!googleProfileText.trim()) {
-      alert("Bitte ein Google-Profil auswählen (Pflichtfeld).");
+
+    // Google-Profil muss vorhanden sein (Pflichtfeld)
+    const trimmed = profileInput.trim();
+    if (!trimmed) {
+      alert("Bitte ein Google-Profil angeben (Pflichtfeld).");
       return;
     }
+
     const payload = {
-      googleProfile: googleProfileText,
+      googleProfileText: trimmed,
       selectedOption: option,
-      customText: option === "custom" ? customText : "",
+      customNotes: option === "custom" ? customNotes.trim() : "",
       company, firstName, lastName, email, phone,
       submittedAt: new Date().toISOString(),
     };
     try { sessionStorage.setItem("sb_checkout_payload", JSON.stringify(payload)); } catch {}
     console.log("Lead payload:", payload);
-    alert("Danke! Wir haben deine Angaben vorgemerkt. (Nächster Step: Signatur + PDF + E-Mail)");
+    alert("Top! Daten aufgenommen. Nächster Schritt: Vertrag/Signatur + PDF + E-Mail.");
   };
 
   return (
-    <main className="sb-page-wrap">
-      {/* EIN großer, durchgehender Bereich mit DEMSELBEN Background wie im Simulator */}
-      <section className="stars-wrap">
-        <LiveSimulator />
+    <main className="sb-dashboard-wrap">
+      {/* Google Places Script – hier, damit Autocomplete im Formular nutzbar ist */}
+      <Script
+        src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`}
+        strategy="afterInteractive"
+      />
 
-        {/* EIN großer, pulsierender Rechteck-Button */}
-        <div className="cta-box">
-          <button
-            type="button"
-            className={`mega-cta ${launching ? "launch" : ""}`}
-            onClick={handleLaunch}
-            aria-label="Jetzt loslegen"
-          >
-            <span className="cta-label">Jetzt loslegen</span>
-            <span className="cta-rocket" aria-hidden>🚀</span>
-            <span className="pulse-ring" aria-hidden />
-          </button>
-        </div>
+      {/* Live-Simulator – mit seinem eigenen, hellen Hintergrund wie gehabt */}
+      <LiveSimulator />
 
-        {/* Formular (liegt IM selben Background-Bereich) */}
-        <section ref={formRef} className={`drawer ${formOpen ? "open" : ""}`} aria-hidden={!formOpen}>
-          <form className="lead-form" onSubmit={onSubmit} autoComplete="on">
-            <h2 className="form-headline">Es kann gleich losgehen ✨</h2>
-            <p className="form-sub">
-              Lass uns kurz das Formular ausfüllen – dann geht’s los. <strong>Alle Felder sind Pflicht.</strong>
-            </p>
+      {/* EINziger CTA */}
+      <div className="cta-one">
+        <button className="cta-btn" onClick={handleOpenForm}>
+          <span className="txt">Jetzt loslegen</span>
+          <span className="emoji">🚀</span>
+        </button>
+      </div>
 
-            {/* Google-Profil (Pflicht) */}
-            <div className="field">
-              <label>Google-Profil<span className="req">*</span></label>
-              <div className="profile-input">
+      {/* Formular-Box */}
+      <section
+        ref={formRef}
+        className={`drawer ${formOpen ? "open" : ""}`}
+        aria-hidden={!formOpen}
+      >
+        <header className="drawer-head">
+          <h2>Es kann gleich losgehen</h2>
+          <p className="sub">
+            Bitte alle Felder ausfüllen. Mit <span className="req">*</span> gekennzeichnete Felder sind Pflicht.
+          </p>
+        </header>
+
+        <form className="lead-form" onSubmit={onSubmit} autoComplete="on">
+          {/* Google-Profil */}
+          <div className="group">
+            <div className="group-title big">Google-Profil <span className="req">*</span></div>
+            <div className="profile-line">
+              <div className="profile-field">
                 <input
+                  ref={orderInputRef}
                   type="text"
-                  value={googleProfileText}
-                  readOnly
-                  placeholder="Wird automatisch aus dem Live-Simulator übernommen"
+                  placeholder='Unternehmen suchen oder einfügen, z. B. "Smashburger, Berlin"'
+                  value={profileInput}
+                  onChange={(e) => setProfileInput(e.target.value)}
                   required
                 />
-                {profile?.url ? (
-                  <a className="profile-link" href={profile.url} target="_blank" rel="noreferrer">
-                    Profil öffnen ↗
-                  </a>
-                ) : null}
+                {!!profileInput && (
+                  <button
+                    type="button"
+                    className="clear"
+                    aria-label="Feld leeren"
+                    onClick={clearProfileInput}
+                  >
+                    ×
+                  </button>
+                )}
               </div>
+              {profile?.url ? (
+                <a className="profile-link" href={profile.url} target="_blank" rel="noreferrer">
+                  Profil öffnen ↗
+                </a>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Welche Bewertungen… */}
+          <div className="group">
+            <div className="group-title">Welche Bewertungen sollen gelöscht werden?</div>
+            <div className="checks">
+              <label className={`choice ${option === "123" ? "on" : ""}`}>
+                <input
+                  type="radio"
+                  name="delopt"
+                  value="123"
+                  checked={option === "123"}
+                  onChange={() => onOptionChange("123")}
+                />
+                <span className="mark" /> 1–3 ⭐ löschen
+              </label>
+
+              <label className={`choice ${option === "12" ? "on" : ""}`}>
+                <input
+                  type="radio"
+                  name="delopt"
+                  value="12"
+                  checked={option === "12"}
+                  onChange={() => onOptionChange("12")}
+                />
+                <span className="mark" /> 1–2 ⭐ löschen
+              </label>
+
+              <label className={`choice ${option === "1" ? "on" : ""}`}>
+                <input
+                  type="radio"
+                  name="delopt"
+                  value="1"
+                  checked={option === "1"}
+                  onChange={() => onOptionChange("1")}
+                />
+                <span className="mark" /> 1 ⭐ löschen
+              </label>
+
+              <label className={`choice ${option === "custom" ? "on" : ""}`}>
+                <input
+                  type="radio"
+                  name="delopt"
+                  value="custom"
+                  checked={option === "custom"}
+                  onChange={() => onOptionChange("custom")}
+                />
+                <span className="mark" /> Individuelle Löschungen
+              </label>
             </div>
 
-            {/* Auswahl */}
-            <div className="group">
-              <div className="group-title">
-                Welche Bewertungen sollen gelöscht werden?<span className="req">*</span>
-              </div>
-              <div className="checks">
-                <label className={`choice ${option === "123" ? "on" : ""}`}>
-                  <input
-                    type="radio"
-                    name="delopt"
-                    value="123"
-                    checked={option === "123"}
-                    onChange={() => onOptionChange("123")}
-                    required
-                  />
-                  <span className="mark" /> 1–3 ⭐ löschen
-                </label>
-
-                <label className={`choice ${option === "12" ? "on" : ""}`}>
-                  <input
-                    type="radio"
-                    name="delopt"
-                    value="12"
-                    checked={option === "12"}
-                    onChange={() => onOptionChange("12")}
-                  />
-                  <span className="mark" /> 1–2 ⭐ löschen
-                </label>
-
-                <label className={`choice ${option === "1" ? "on" : ""}`}>
-                  <input
-                    type="radio"
-                    name="delopt"
-                    value="1"
-                    checked={option === "1"}
-                    onChange={() => onOptionChange("1")}
-                  />
-                  <span className="mark" /> 1 ⭐ löschen
-                </label>
-
-                <label className={`choice ${option === "custom" ? "on" : ""}`}>
-                  <input
-                    type="radio"
-                    name="delopt"
-                    value="custom"
-                    checked={option === "custom"}
-                    onChange={() => onOptionChange("custom")}
-                  />
-                  <span className="mark" /> Individuelle Löschungen
-                </label>
-              </div>
-
-              {option === "custom" && (
-                <div className="field">
-                  <label>Individuelle Wünsche</label>
-                  <textarea
-                    rows={4}
-                    placeholder="Beschreibe hier deine individuellen Wünsche…"
-                    value={customText}
-                    onChange={(e) => setCustomText(e.target.value)}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Kontaktdaten */}
-            <div className="group">
-              <div className="group-title">Kontaktdaten</div>
-
+            {option === "custom" && (
               <div className="field">
-                <label>Firmenname<span className="req">*</span></label>
+                <label>Deine individuellen Wünsche</label>
+                <textarea
+                  rows={4}
+                  placeholder="Schreibe hier deine individuellen Wünsche rein (z. B. Anzahl, Besonderheiten, Zeitrahmen)…"
+                  value={customNotes}
+                  onChange={(e) => setCustomNotes(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Kontaktdaten – Vertriebler-Ton */}
+          <div className="group">
+            <div className="group-title">Kontaktdaten</div>
+
+            <div className="field">
+              <label>Firmenname</label>
+              <input
+                type="text"
+                placeholder="z. B. Smashburger GmbH"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+              />
+            </div>
+
+            <div className="row">
+              <div className="field half">
+                <label>Vorname <span className="req">*</span></label>
                 <input
                   type="text"
-                  placeholder="z. B. Smashburger GmbH"
-                  value={company}
-                  onChange={(e) => setCompany(e.target.value)}
+                  placeholder="Max"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
                   required
                 />
               </div>
-
-              <div className="row">
-                <div className="field half">
-                  <label>Vorname<span className="req">*</span></label>
-                  <input
-                    type="text"
-                    placeholder="Max"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="field half">
-                  <label>Nachname<span className="req">*</span></label>
-                  <input
-                    type="text"
-                    placeholder="Mustermann"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="row">
-                <div className="field half">
-                  <label>E-Mail<span className="req">*</span></label>
-                  <input
-                    type="email"
-                    placeholder="max@firma.de"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="field half">
-                  <label>Telefon<span className="req">*</span></label>
-                  <input
-                    type="tel"
-                    placeholder="+49 151 23456789"
-                    pattern="^\+?[0-9 ]{6,}$"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    required
-                  />
-                </div>
+              <div className="field half">
+                <label>Nachname <span className="req">*</span></label>
+                <input
+                  type="text"
+                  placeholder="Mustermann"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  required
+                />
               </div>
             </div>
 
-            <div className="actions">
-              <button type="submit" className="submit-btn">Auftrag bestätigen</button>
+            <div className="row">
+              <div className="field half">
+                <label>E-Mail <span className="req">*</span></label>
+                <input
+                  type="email"
+                  placeholder="max@firma.de"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="field half">
+                <label>Telefon</label>
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  placeholder="+49 151 23456789"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
             </div>
-          </form>
-        </section>
+          </div>
+
+          <div className="actions">
+            <button type="submit" className="submit-btn">Auftrag bestätigen</button>
+          </div>
+        </form>
       </section>
 
-      {/* Styles */}
+      {/* ======= Styles ======= */}
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Outfit:wght@400;600;700&display=swap');
 
-        .sb-page-wrap{max-width:1208px;margin:0 auto;padding:0 12px 80px}
+        .sb-dashboard-wrap{max-width:1208px;margin:0 auto;padding:0 12px 80px}
 
-        /* Durchgehender Background (gleich wie Live-Simulator) */
-        .stars-wrap{
-          border-radius:16px;
-          background:url("https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689acdb9f72cb41186204eda_stars-rating.webp") center/cover no-repeat;
-          padding: 0 0 48px; /* reicht unten bis unters Formular */
+        /* EINziger CTA */
+        .cta-one{display:flex;justify-content:center;margin-top:16px}
+        .cta-btn{
+          appearance:none;border:0;cursor:pointer;
+          display:inline-flex;align-items:center;gap:10px;
+          padding:16px 26px;border-radius:16px;
+          font-weight:800;letter-spacing:.2px;font-size:18px;
+          background:#0b0b0b;color:#fff;
+          box-shadow:0 12px 30px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.04);
+          transform:translateZ(0);
+          transition:transform .14s ease, box-shadow .22s ease, background .25s ease;
+          animation:pulseBtn 2.2s ease-in-out infinite;
+        }
+        .cta-btn:hover{transform:translateY(-1px);box-shadow:0 16px 40px rgba(0,0,0,.28)}
+        .cta-btn .emoji{font-size:20px;transform:translateY(-1px)}
+        @keyframes pulseBtn{
+          0%{transform:scale(.995)} 50%{transform:scale(1)} 100%{transform:scale(.995)}
         }
 
-        /* EIN großer pulsierender Rechteck-CTA */
-        .cta-box{display:flex;justify-content:center;margin-top:18px}
-        .mega-cta{
-          position:relative;
-          display:flex;align-items:center;justify-content:center;gap:12px;
-          width:min(920px,92vw);height:82px;
-          border-radius:18px;border:1px solid rgba(0,0,0,.65);
-          background:linear-gradient(103deg,#151515,#262626 55%, #0c0c0c 100%);
-          color:#fff;font:700 22px/1 Poppins,system-ui;letter-spacing:.2px;
-          box-shadow:0 14px 40px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.05);
-          cursor:pointer;overflow:hidden;
-          transition:transform .14s ease, box-shadow .24s ease, background .25s ease;
-        }
-        .mega-cta:hover{transform:translateY(-1px);box-shadow:0 18px 52px rgba(0,0,0,.34)}
-        .mega-cta:active{transform:translateY(0)}
-        .mega-cta .cta-label{position:relative;z-index:2}
-        .mega-cta .cta-rocket{position:relative;z-index:2;transition:transform .5s ease, opacity .5s ease}
-        .mega-cta .pulse-ring{
-          position:absolute;inset:-10%;border-radius:24px;z-index:1;
-          box-shadow:0 0 0 0 rgba(73,168,76,.35);
-          animation:pulse 2.2s ease-in-out infinite;
-        }
-        @keyframes pulse{
-          0%{box-shadow:0 0 0 0 rgba(73,168,76,.0)}
-          50%{box-shadow:0 0 0 26px rgba(73,168,76,.14)}
-          100%{box-shadow:0 0 0 0 rgba(73,168,76,.0)}
-        }
-        .mega-cta.launch .cta-rocket{transform:translateY(-12px) translateX(6px) rotate(-8deg)}
-
-        /* Drawer – Glaslook, aber transparent genug, damit der Hintergrund NICHT „blanko“ wirkt */
+        /* Drawer (Formular-Box) – hellblauer Verlauf NUR INNEN */
         .drawer{
           max-width:880px;margin:18px auto 0;
-          background:rgba(255,255,255,.88);
-          /* KEIN zusätzlicher Overlay, kein Abdunkeln des BG */
-          border:1px solid rgba(0,0,0,.06);border-radius:16px;
+          background:linear-gradient(180deg,#DBEDFF 0%, #FFFFFF 100%);
+          border:1px solid rgba(0,0,0,.05);border-radius:16px;
           box-shadow:0 20px 60px rgba(0,0,0,.12);
           overflow:hidden;transform:translateY(-6px) scale(.985);opacity:0;pointer-events:none;
           transition:transform .28s ease, opacity .28s ease;
         }
         .drawer.open{transform:translateY(0) scale(1);opacity:1;pointer-events:auto}
 
-        .lead-form{padding:22px}
-        .form-headline{
-          margin:0 0 6px 0;
-          font:700 22px/1.2 Poppins,system-ui;color:#0f172a;
+        .drawer-head{padding:20px 22px 0}
+        .drawer-head h2{
+          margin:0 0 6px 0;font:800 24px/1.2 Outfit,system-ui;color:#0f172a
         }
-        .form-sub{
-          margin:0 0 12px 0;
-          font:600 13px/1.4 Poppins,system-ui;color:#475569;
+        .drawer-head .sub{
+          margin:0 0 2px 0;color:#475569;font:600 13px/1.3 Poppins,system-ui
         }
-        .req{margin-left:6px;color:#e11d48}
+        .req{color:#e11d48;font-weight:800}
 
+        .lead-form{padding:16px 22px 22px}
         .group{margin-top:18px}
-        .group-title{font:700 18px/1 Poppins,system-ui;color:#0f172a;margin-bottom:10px}
+        .group-title{font:700 18px/1 Outfit,system-ui;color:#0f172a;margin-bottom:10px}
+        .group-title.big{font-size:20px}
+
+        .profile-line{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+        .profile-field{
+          position:relative;flex:1;min-width:260px
+        }
+        .profile-field input{
+          height:46px;border-radius:12px;border:1px solid rgba(0,0,0,.1);padding:0 42px 0 14px;
+          font-size:16px;outline:none;background:#fff;transition:box-shadow .16s ease, border-color .16s ease;
+          width:100%;
+        }
+        .profile-field input:focus{border-color:#49a84c;box-shadow:0 0 0 4px rgba(73,168,76,.18)}
+        .profile-field .clear{
+          position:absolute;right:8px;top:50%;transform:translateY(-50%);
+          width:28px;height:28px;border-radius:8px;border:1px solid rgba(0,0,0,.12);
+          display:inline-flex;align-items:center;justify-content:center;background:#fff;cursor:pointer;
+        }
+        .profile-link{font-size:13px;color:#2563eb;text-decoration:underline;white-space:nowrap}
 
         .field{display:flex;flex-direction:column;gap:8px;margin-top:12px}
-        .field.inline{flex-direction:row;align-items:center;gap:12px}
-        .field.inline label{min-width:260px}
         .field label{font:600 13px/1.2 Poppins,system-ui;color:#475569}
         .field input{
-          height:42px; /* kompakter */
-          border-radius:12px;border:1px solid rgba(0,0,0,.1);padding:0 14px;
+          height:40px;border-radius:12px;border:1px solid rgba(0,0,0,.1);padding:0 12px;
           font-size:15px;outline:none;background:#fff;transition:box-shadow .16s ease, border-color .16s ease;
         }
+        .field input:focus{border-color:#49a84c;box-shadow:0 0 0 4px rgba(73,168,76,.18)}
         .field textarea{
-          border-radius:12px;border:1px solid rgba(0,0,0,.1);padding:10px 14px;
-          font-size:15px;outline:none;background:#fff;transition:box-shadow .16s ease, border-color .16s ease;resize:vertical;
+          min-height:110px;border-radius:12px;border:1px solid rgba(0,0,0,.1);padding:10px 12px;
+          font-size:15px;outline:none;background:#fff;transition:box-shadow .16s ease, border-color .16s ease;
+          resize:vertical;
         }
-        .field input:focus, .field textarea:focus{border-color:#49a84c;box-shadow:0 0 0 4px rgba(73,168,76,.18)}
-
-        .profile-input{display:flex;gap:10px;align-items:center}
-        .profile-input input{flex:1}
-        .profile-link{font-size:13px;color:#2563eb;text-decoration:underline;white-space:nowrap}
+        .field textarea:focus{border-color:#49a84c;box-shadow:0 0 0 4px rgba(73,168,76,.18)}
 
         .row{display:flex;gap:12px}
         .half{flex:1}
 
-        /* Choice Cards */
+        /* Choice Cards – altes, besseres Layout */
         .checks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:10px}
         .choice{
           display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;
@@ -394,8 +455,8 @@ export default function DashboardPage() {
 
         .actions{display:flex;justify-content:flex-end;margin-top:22px}
         .submit-btn{
-          padding:13px 20px;border-radius:12px;border:1px solid #0b0b0b;background:#0b0b0b;color:#fff;
-          font-weight:700;letter-spacing:.2px;
+          padding:12px 20px;border-radius:12px;border:1px solid #0b0b0b;background:#0b0b0b;color:#fff;
+          font-weight:800;letter-spacing:.2px;font-size:16px;
           box-shadow:0 12px 28px rgba(0,0,0,.18);
           transition:transform .12s ease, box-shadow .22s ease, background .22s ease;
         }
@@ -403,13 +464,11 @@ export default function DashboardPage() {
 
         /* Mobile */
         @media (max-width: 820px){
+          .drawer{margin:14px 0;border-radius:14px}
           .lead-form{padding:16px}
           .row{flex-direction:column}
-          .field.inline{flex-direction:column;align-items:flex-start}
-          .field.inline label{min-width:unset}
           .checks{grid-template-columns:1fr}
           .submit-btn{width:100%}
-          .mega-cta{height:76px}
         }
       `}</style>
     </main>
