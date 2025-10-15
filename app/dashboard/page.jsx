@@ -5,6 +5,8 @@ import LiveSimulator from "../../components/LiveSimulator"; // unverändert lass
 
 export default function DashboardPage() {
   const [formOpen, setFormOpen] = useState(false);
+  const [blast, setBlast] = useState(false); // Raketen-Animation (oben)
+  const [flyCheck, setFlyCheck] = useState(false); // fliegender Haken beim Submit
 
   // Auswahl aus dem Simulator
   const [option, setOption] = useState("123"); // "123" | "12" | "1" | "custom"
@@ -23,9 +25,6 @@ export default function DashboardPage() {
 
   // Individuelle Wünsche (Textfeld)
   const [customNotes, setCustomNotes] = useState("");
-
-  // Flying check animation
-  const [flyCheck, setFlyCheck] = useState(false);
 
   const formRef = useRef(null);
   const scrollToForm = () =>
@@ -68,11 +67,15 @@ export default function DashboardPage() {
     };
   }, []);
 
-  // Einmalig beim Öffnen nochmal ziehen (falls Nutzer manuell tippt)
-  const openForm = () => {
+  // EIN Button -> frische Daten ziehen, Rakete kurz "fliegen", Formular öffnen
+  const openFormWithBlast = () => {
     pullLatest();
-    setFormOpen(true);
-    setTimeout(scrollToForm, 20);
+    setBlast(true);
+    setTimeout(() => {
+      setFormOpen(true);
+      setTimeout(scrollToForm, 30);
+      setTimeout(() => setBlast(false), 300);
+    }, 260);
   };
 
   // Google Places Autocomplete auch im Formular (bearbeitbar)
@@ -102,19 +105,13 @@ export default function DashboardPage() {
     } catch (e) {
       console.warn("Form autocomplete init error:", e);
     }
-  }, [formOpen]); // initialisieren wenn das Formular sichtbar wird
+  }, [formOpen]);
 
   const onOptionChange = (val) => {
     setOption(val);
     try {
       sessionStorage.setItem("sb_selected_option", val);
     } catch {}
-  };
-
-  const triggerCheckFly = () => {
-    setFlyCheck(true);
-    // nach der Animation wieder entfernen
-    setTimeout(() => setFlyCheck(false), 1400);
   };
 
   const submit = (e) => {
@@ -140,14 +137,15 @@ export default function DashboardPage() {
       sessionStorage.setItem("sb_checkout_payload", JSON.stringify(payload));
     } catch {}
 
-    // ✅ fliegender Haken
-    triggerCheckFly();
+    // ✅ fliegender Haken (nur beim Submit)
+    setFlyCheck(true);
+    setTimeout(() => setFlyCheck(false), 1200);
 
     // kleines Delay, damit die Animation sichtbar ist
     setTimeout(() => {
       console.log("Lead payload:", payload);
       alert("Auftrag erfasst. (Nächster Schritt: Signatur & PDF)");
-    }, 900);
+    }, 850);
   };
 
   return (
@@ -155,11 +153,15 @@ export default function DashboardPage() {
       {/* Live-Simulator */}
       <LiveSimulator />
 
-      {/* EIN Button (schwarz) */}
+      {/* EIN Button (schwarz, mit 🚀) – bleibt wie gehabt */}
       {!formOpen && (
         <div className="cta">
-          <button className="primary-btn" onClick={openForm}>
-            Jetzt loslegen
+          <button
+            className={`primary-btn ${blast ? "blast" : ""}`}
+            onClick={openFormWithBlast}
+          >
+            <span className="label">Jetzt loslegen</span>
+            <span className="rocket" aria-hidden>🚀</span>
           </button>
         </div>
       )}
@@ -173,7 +175,7 @@ export default function DashboardPage() {
         <header className="drawer-head">
           <h2 className="title">Es kann gleich losgehen ✨</h2>
           <p className="sub">
-            Bitte kurz ausfüllen – dann bestätigen wir den Auftrag direkt.
+            Bitte alle Felder ausfüllen. Mit <span className="req">*</span> markiert = Pflicht.
           </p>
         </header>
 
@@ -344,7 +346,8 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="actions center">
+          {/* Mehr Abstand + hellgrüner Confirm mit ✅ */}
+          <div className="actions roomy">
             <button className="submit-btn confirm" type="submit">
               <span className="emoji" aria-hidden>✅</span>
               <span className="label">Auftrag bestätigen</span>
@@ -353,12 +356,11 @@ export default function DashboardPage() {
         </form>
       </section>
 
-      {/* Fliegender grüner Haken (nur wenn aktiv) */}
+      {/* Fliegender grüner Haken (nur beim Submit) */}
       {flyCheck && (
         <div className="check-fly" aria-hidden>
-          {/* runder grüner Button mit weißem Haken – als SVG */}
           <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
-            <circle cx="28" cy="28" r="28" fill="#16a34a"/>
+            <circle cx="28" cy="28" r="28" fill="#22c55e"/>
             <path d="M16 28.5l7.2 7.2L40 19" stroke="white" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </div>
@@ -372,7 +374,7 @@ export default function DashboardPage() {
           padding: 0 12px 80px;
         }
 
-        /* EIN Button (schwarz) */
+        /* EIN Button (schwarz) mit 🚀 – unverändert */
         .cta {
           display: flex;
           justify-content: center;
@@ -383,24 +385,38 @@ export default function DashboardPage() {
           border: 1px solid #0b0b0b;
           background: #0b0b0b;
           color: #fff;
-          padding: 14px 22px;
-          border-radius: 999px;
+          padding: 14px 24px;
+          border-radius: 16px;
           font-weight: 800;
           letter-spacing: 0.2px;
           box-shadow: 0 10px 26px rgba(0, 0, 0, 0.2);
           transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.2s ease;
+          display: inline-flex;
+          gap: 10px;
+          align-items: center;
+          position: relative;
+          overflow: hidden;
+          animation: pulseBtn 2.2s ease-in-out infinite;
         }
         .primary-btn:hover {
           transform: translateY(-1px);
           background: #111;
           box-shadow: 0 14px 32px rgba(0, 0, 0, 0.28);
         }
+        .label { font-size: 16px; }
+        .rocket { display: inline-block; transition: transform .25s ease; }
+        .primary-btn.blast .rocket { transform: translateY(-18px) translateX(6px) rotate(-12deg) scale(1.08); }
+        @keyframes pulseBtn {
+          0% { transform: scale(.995) }
+          50% { transform: scale(1) }
+          100% { transform: scale(.995) }
+        }
 
-        /* Drawer – dein grüner Verlauf (#dcebdf → #fff) bleibt */
+        /* Drawer: GRÜN -> WEISS Verlauf (nur in der Box) */
         .drawer {
           max-width: 900px;
           margin: 20px auto 0;
-          background: linear-gradient(135deg, #dcebdf 0%, #ffffff 80%);
+          background: linear-gradient(135deg, #e6f6ea 0%, #ffffff 80%);
           border: 1px solid rgba(0, 0, 0, 0.06);
           border-radius: 20px;
           box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
@@ -451,7 +467,7 @@ export default function DashboardPage() {
           font-weight: 800;
         }
 
-        /* Google-Profil: wieder breit + Clear-X + Profil öffnen Button */
+        /* Google-Profil */
         .profile-row {
           display: flex;
           align-items: center;
@@ -465,10 +481,10 @@ export default function DashboardPage() {
         }
         .profile-input input {
           width: 100%;
-          height: 36px; /* kompakter */
+          height: 36px;
           border-radius: 10px;
           border: 1px solid rgba(0, 0, 0, 0.12);
-          padding: 8px 34px 8px 12px; /* Platz für X rechts */
+          padding: 8px 34px 8px 12px;
           font-size: 15px;
           background: #fff;
           transition: border-color 0.16s ease, box-shadow 0.16s ease;
@@ -510,7 +526,7 @@ export default function DashboardPage() {
           background: #e4efff;
         }
 
-        /* Choice Cards im Grid */
+        /* Choice Cards */
         .checks {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -541,9 +557,7 @@ export default function DashboardPage() {
           border-color: #0b6cf2;
           background: #eef5ff;
         }
-        .choice input {
-          display: none;
-        }
+        .choice input { display: none; }
         .choice .mark {
           width: 18px;
           height: 18px;
@@ -579,7 +593,7 @@ export default function DashboardPage() {
         }
         .field input,
         .field textarea {
-          height: 34px; /* kompakter als zuvor */
+          height: 34px;
           border-radius: 10px;
           border: 1px solid rgba(0, 0, 0, 0.12);
           padding: 6px 10px;
@@ -587,93 +601,73 @@ export default function DashboardPage() {
           background: #fff;
           transition: border-color 0.16s ease, box-shadow 0.16s ease;
         }
-        .field textarea {
-          height: auto;
-        }
+        .field textarea { height: auto; }
         .field input:focus,
         .field textarea:focus {
           border-color: #0b6cf2;
           box-shadow: 0 0 0 3px rgba(11, 108, 242, 0.2);
         }
 
-        .row {
-          display: flex;
-          gap: 12px;
-        }
-        .half {
-          flex: 1;
-        }
+        .row { display: flex; gap: 12px; }
+        .half { flex: 1; }
 
         /* Extra Luft nach der Telefon-Reihe */
-        .group:last-of-type .row:last-of-type {
-          margin-bottom: 12px;
-        }
+        .group:last-of-type .row:last-of-type { margin-bottom: 12px; }
 
+        /* Aktionen – mehr Abstand nach oben, Button hellgrün + ✅ */
         .actions {
           display: flex;
           justify-content: flex-end;
           margin-top: 6px;
         }
-        .actions.center { justify-content: center; }
+        .actions.roomy { margin-top: 22px; } /* << mehr Abstand zu E-Mail/Telefon */
 
-        /* Dunkelgrüner, zentrierter Confirm-Button mit subtiler Pulse-Anim */
-        .submit-btn.confirm{
-          display:inline-flex;
-          align-items:center;
-          gap:10px;
-          padding:14px 22px;
-          border-radius:999px;
-          border:1px solid #0b461f;
-          background: linear-gradient(135deg, #166534 0%, #0f3f20 100%);
-          color:#fff;
-          font-weight:800;
-          letter-spacing:.2px;
-          box-shadow: 0 12px 30px rgba(6, 95, 70, .35);
+        .submit-btn.confirm {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          padding: 14px 22px;
+          border-radius: 999px;
+          border: 1px solid #16a34a;
+          background: linear-gradient(135deg, #34d399 0%, #22c55e 100%); /* HELLER grün */
+          color: #0b2b16;
+          font-weight: 800;
+          letter-spacing: .2px;
+          box-shadow: 0 12px 28px rgba(34, 197, 94, .35);
           transition: transform .12s ease, box-shadow .18s ease, filter .18s ease, background .18s ease;
-          will-change: transform, box-shadow, filter;
-          animation: confirmPulse 2.4s ease-in-out infinite;
         }
-        .submit-btn.confirm .label { font-size:16px; }
-        .submit-btn.confirm .emoji { transform: translateY(-1px); transition: transform .2s ease; }
-        .submit-btn.confirm:hover{
+        .submit-btn.confirm .label { font-size: 16px; }
+        .submit-btn.confirm:hover {
           transform: translateY(-1px);
-          filter: brightness(1.05);
-          box-shadow: 0 16px 36px rgba(6, 95, 70, .45);
+          filter: brightness(1.03);
+          box-shadow: 0 16px 36px rgba(34, 197, 94, .45);
         }
-        .submit-btn.confirm:active{
+        .submit-btn.confirm:active {
           transform: translateY(0);
           filter: brightness(.98);
-          box-shadow: 0 8px 18px rgba(6, 95, 70, .35);
+          box-shadow: 0 8px 18px rgba(34, 197, 94, .35);
         }
-        .submit-btn.confirm:focus-visible{
+        .submit-btn.confirm:focus-visible {
           outline: none;
-          box-shadow: 0 0 0 3px rgba(22, 101, 52, .22), 0 12px 30px rgba(6, 95, 70, .35);
-        }
-        .submit-btn.confirm:hover .emoji{
-          transform: translateY(-3px) rotate(-6deg) scale(1.06);
-        }
-        @keyframes confirmPulse {
-          0%   { transform: scale(.997); }
-          50%  { transform: scale(1); }
-          100% { transform: scale(.997); }
+          box-shadow: 0 0 0 3px rgba(34, 197, 94, .25), 0 12px 28px rgba(34, 197, 94, .35);
         }
 
         /* Fliegender grüner Haken */
-        .check-fly{
+        .check-fly {
           position: fixed;
           z-index: 1000;
           left: 50%;
-          bottom: 110px;              /* startet knapp über dem Button */
+          bottom: 120px; /* startet knapp über dem Button */
           transform: translateX(-50%);
           pointer-events: none;
-          animation: checkFly 1.1s cubic-bezier(.18,.64,.32,1) forwards;
-          filter: drop-shadow(0 12px 22px rgba(6,95,70,.35));
+          animation: checkFly 1.0s cubic-bezier(.18,.64,.32,1) forwards;
+          filter: drop-shadow(0 12px 22px rgba(34, 197, 94, .35));
         }
         @keyframes checkFly {
           0%   { transform: translate(-50%, 0) rotate(0deg); opacity: 0; }
           10%  { opacity: 1; }
-          60%  { transform: translate(calc(-50% + 180px), -220px) rotate(-8deg); opacity: 1; }
-          100% { transform: translate(calc(-50% + 420px), -520px) rotate(8deg); opacity: 0; }
+          60%  { transform: translate(calc(-50% + 140px), -190px) rotate(-6deg); opacity: 1; }
+          100% { transform: translate(calc(-50% + 360px), -420px) rotate(8deg); opacity: 0; }
         }
 
         /* Mobile */
@@ -682,26 +676,20 @@ export default function DashboardPage() {
             margin: 16px 0 0;
             border-radius: 16px;
           }
-          .checks {
-            grid-template-columns: 1fr;
-          }
-          .row {
-            flex-direction: column;
-          }
-          .actions {
-            justify-content: stretch;
-          }
-          .actions.center { justify-content: center; }
-          .submit-btn.confirm{ width:100%; justify-content:center; }
-          .check-fly{
-            bottom: 96px;
-            animation: checkFlyMobile 1.0s cubic-bezier(.18,.64,.32,1) forwards;
+          .checks { grid-template-columns: 1fr; }
+          .row { flex-direction: column; }
+          .actions { justify-content: stretch; }
+          .actions.roomy { margin-top: 20px; }
+          .submit-btn.confirm { width: 100%; justify-content: center; }
+          .check-fly {
+            bottom: 100px;
+            animation: checkFlyMobile .9s cubic-bezier(.18,.64,.32,1) forwards;
           }
           @keyframes checkFlyMobile {
             0%   { transform: translate(-50%, 0) rotate(0deg); opacity: 0; }
             10%  { opacity: 1; }
-            60%  { transform: translate(calc(-50% + 80px), -180px) rotate(-8deg); opacity: 1; }
-            100% { transform: translate(calc(-50% + 160px), -360px) rotate(8deg); opacity: 0; }
+            60%  { transform: translate(calc(-50% + 80px), -160px) rotate(-6deg); opacity: 1; }
+            100% { transform: translate(calc(-50% + 160px), -320px) rotate(8deg); opacity: 0; }
           }
         }
       `}</style>
