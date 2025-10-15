@@ -4,21 +4,21 @@ import { useEffect, useRef, useState } from "react";
 import Script from "next/script";
 
 /**
- * LiveSimulator
- * - Google Places Autocomplete (einmalig, stabil)
- * - ENTER ODER Auswahl im Dropdown startet Fetch
- * - Countdown "Lade Bewertungen… 4,3,2,1"
- * - Rendering 1:1 an Webflow-Optik angelehnt
- * - Unten: "Jetzt loslegen" statt "Jetzt prüfen"
- * - Merkt das Profil in sessionStorage ("sb_selected_profile")
- * - Optionaler Callback: onStart({name,address,url})
+ * LiveSimulator – Webflow-Optik + Optionen
+ * - Google Places Autocomplete
+ * - ENTER oder Auswahl startet Fetch + Countdown
+ * - Darstellung 1:1 wie Webflow (Chips, Klammer, 2 Karten)
+ * - Unten: drei Options-Buttons (1–3 / 1–2 / nur 1 Stern)
+ * - Kein "Hinweis-Text", kein "Jetzt loslegen"-CTA
+ * - Auswahl in sessionStorage gemerkt (für spätere Prefill-Nutzung)
  */
-export default function LiveSimulator({ onStart }) {
+export default function LiveSimulator() {
   const inputRef = useRef(null);
   const [loadingText, setLoadingText] = useState("");
   const [data, setData] = useState(null); // { averageRating, totalReviews, breakdown }
   const [error, setError] = useState("");
   const [selected, setSelected] = useState(null); // { name, address, url? }
+  const [activeOpt, setActiveOpt] = useState("123"); // "123" | "12" | "1"
 
   // ---------- Google Places ----------
   const onGoogleLoad = () => {
@@ -37,7 +37,9 @@ export default function LiveSimulator({ onStart }) {
         const name = place.name || "";
         const address = place.formatted_address || "";
         const url = place.url || "";
-        setSelected({ name, address, url });
+        const sel = { name, address, url };
+        setSelected(sel);
+        sessionStorage.setItem("sb_selected_profile", JSON.stringify(sel));
         inputRef.current.value = `${name}${address ? ", " + address : ""}`;
         runFetch(name, address);
       });
@@ -70,7 +72,7 @@ export default function LiveSimulator({ onStart }) {
       const json = await res.json().catch(() => null);
       stop();
       setLoadingText("");
-      if (!json) throw new Error("Leere Antwort");
+      if (!json) throw new Error("Leere Antwort von der API");
       setData({
         averageRating: typeof json.averageRating === "number" ? json.averageRating : 4.1,
         totalReviews: typeof json.totalReviews === "number" ? json.totalReviews : 250,
@@ -83,7 +85,7 @@ export default function LiveSimulator({ onStart }) {
     }
   };
 
-  // ENTER startet Suche
+  // ENTER startet Suche (Fallback ohne Dropdown-Klick)
   const onKeyDown = (e) => {
     if (e.key !== "Enter") return;
     e.preventDefault();
@@ -92,21 +94,10 @@ export default function LiveSimulator({ onStart }) {
     const parts = raw.split(",");
     const name = (parts.shift() || "").trim();
     const address = parts.join(",").trim();
-    setSelected({ name, address, url: "" });
+    const sel = { name, address, url: "" };
+    setSelected(sel);
+    sessionStorage.setItem("sb_selected_profile", JSON.stringify(sel));
     runFetch(name, address);
-  };
-
-  // ---------- CTA: Jetzt loslegen ----------
-  const handleStart = () => {
-    if (!selected) return;
-    // Profil merken – fürs Formular
-    sessionStorage.setItem("sb_selected_profile", JSON.stringify(selected));
-    // Event an Parent (optional)
-    onStart?.(selected);
-    // Zusätzlich Broadcast (falls Parent per Window hört)
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("sb:simulator-start", { detail: selected }));
-    }
   };
 
   // ---------- UI Helpers ----------
@@ -130,28 +121,34 @@ export default function LiveSimulator({ onStart }) {
     return Math.min(200, Math.round(frac * 200));
   };
 
+  // berechne „Nach Löschung“ je nach aktiver Option
+  const reducedStats = (dataObj, opt) => {
+    const { averageRating: avg, totalReviews: total, breakdown } = dataObj;
+    const map = { "123": [1, 2, 3], "12": [1, 2], "1": [1] };
+    const removeArr = map[opt] || [1, 2, 3];
+
+    const kept = { ...breakdown };
+    removeArr.forEach((s) => (kept[s] = 0));
+
+    const removed = removeArr.reduce((sum, s) => sum + (breakdown[s] || 0), 0);
+    const newTotal = Math.max(0, total - removed) || 1;
+    const newSum = [1, 2, 3, 4, 5].reduce((a, s) => a + s * (kept[s] || 0), 0);
+    const newAvg = newSum / newTotal;
+
+    return { newTotal, newAvg, removed };
+  };
+
   // ---------- Render-Teil ----------
   const Cards = () => {
     if (!data) return null;
     const { averageRating: avg, totalReviews: total, breakdown } = data;
     const badCount = (breakdown[1] || 0) + (breakdown[2] || 0) + (breakdown[3] || 0);
     const curVis = computeCurrentVisibility(avg);
-
-    const apply = (removeArr) => {
-      const kept = { ...breakdown };
-      removeArr.forEach((s) => (kept[s] = 0));
-      const removed = removeArr.reduce((sum, s) => sum + (breakdown[s] || 0), 0);
-      const newTotal = Math.max(0, total - removed) || 1;
-      const newSum = [1, 2, 3, 4, 5].reduce((a, s) => a + s * (kept[s] || 0), 0);
-      const newAvg = newSum / newTotal;
-      return { newTotal, newAvg };
-    };
-
-    const opt123 = apply([1, 2, 3]);
+    const { newTotal, newAvg } = reducedStats(data, activeOpt);
 
     return (
       <>
-        {/* Chips 5..1 */}
+        {/* Sterne-Verteilung */}
         <div className="review-row">
           {[5, 4, 3, 2, 1].map((s) => {
             const count = Number(breakdown[s] || 0).toLocaleString();
@@ -164,7 +161,7 @@ export default function LiveSimulator({ onStart }) {
           })}
         </div>
 
-        {/* 1–3 Sterne Block */}
+        {/* Klammer + 1–3 Summe */}
         <div className="rating-block">
           <img
             src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689f5500b57e679a1940c168_bracket-img.webp"
@@ -205,37 +202,57 @@ export default function LiveSimulator({ onStart }) {
               <img className="star-icon" style={{ width: "100%", maxWidth: 48 }}
                    src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689f5706192ab7698165e044_green-light.webp" alt="Sterne" />
               <div className="before-after-text">
-                <h2 className="rating-value shake" style={{ margin: 0 }}>⚡ ⭐ {fmt1(opt123.newAvg)}</h2>
-                <p className="review-count" style={{ margin: 0 }}>{opt123.newTotal.toLocaleString()} Bewertungen</p>
+                <h2 className="rating-value shake" style={{ margin: 0 }}>⚡ ⭐ {fmt1(newAvg)}</h2>
+                <p className="review-count" style={{ margin: 0 }}>{newTotal.toLocaleString()} Bewertungen</p>
               </div>
             </div>
             <p className="visibility-pill visibility-green" id="vis-new">
               <span style={{ fontWeight: 700 }}>
-                +{computeImprovementVisibility(avg, opt123.newAvg)}%
-              </span> Online-Sichtbarkeit
+                +{computeImprovementVisibility(avg, newAvg)}%
+              </span>{" "}
+              Online-Sichtbarkeit
             </p>
           </div>
         </div>
 
-        {/* CTA unten – ersetzt "Jetzt prüfen" */}
-        <div className="remove-unlimited-3">
-          <p className="remove-unlimited-p-2">
-            Lösche <span className="text-span-18">ALLE</span> schlechten Bewertungen für{" "}
-            <span className="green-number-2">€299</span>
-          </p>
+        {/* Optionen */}
+        <p className="option-hint">Wie viele Sterne sollen weg? 👇</p>
+        <div className="option-row">
           <button
-            className="black-white-btn-small jetxt-button-review black-white-btn-mid"
-            onClick={handleStart}
-            disabled={!selected}
-            title={!selected ? "Bitte erst ein Unternehmen auswählen" : "Jetzt loslegen"}
+            className={`delete-option ${activeOpt === "123" ? "active" : ""}`}
+            onClick={() => setActiveOpt("123")}
+            aria-pressed={activeOpt === "123"}
           >
-            <span className="jetxt-btn">Jetzt loslegen</span>
-          </button>
-          {!selected && (
-            <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>
-              Tipp: Unternehmen oben auswählen, dann aktivieren wir den Button.
+            <span className="option-title">1–3 ⭐ löschen</span>
+            <div className="option-sub">
+              <div>Entfernte: {badCount.toLocaleString()}</div>
+              <div>Pauschal 299€</div>
             </div>
-          )}
+          </button>
+
+          <button
+            className={`delete-option ${activeOpt === "12" ? "active" : ""}`}
+            onClick={() => setActiveOpt("12")}
+            aria-pressed={activeOpt === "12"}
+          >
+            <span className="option-title">1–2 ⭐ löschen</span>
+            <div className="option-sub">
+              <div>{((data.breakdown[1] || 0) + (data.breakdown[2] || 0)).toLocaleString()}</div>
+              <div>Pauschal 299€</div>
+            </div>
+          </button>
+
+          <button
+            className={`delete-option ${activeOpt === "1" ? "active" : ""}`}
+            onClick={() => setActiveOpt("1")}
+            aria-pressed={activeOpt === "1"}
+          >
+            <span className="option-title">1 ⭐ löschen</span>
+            <div className="option-sub">
+              <div>{(data.breakdown[1] || 0).toLocaleString()}</div>
+              <div>Pauschal 299€</div>
+            </div>
+          </button>
         </div>
       </>
     );
@@ -243,7 +260,7 @@ export default function LiveSimulator({ onStart }) {
 
   return (
     <>
-      {/* Google Places – einmalig laden */}
+      {/* Google Places laden */}
       <Script
         src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`}
         strategy="afterInteractive"
@@ -273,58 +290,70 @@ export default function LiveSimulator({ onStart }) {
               autoComplete="off"
               onKeyDown={onKeyDown}
             />
-            <p id="search-hint" className="search-hint">
-              🚀 Probier’s aus: Such dein Unternehmen und sieh selbst, was passiert.
-            </p>
-
             {loadingText && <div id="review-output" className="loading-text">{loadingText}</div>}
             {error && !loadingText && (
               <div className="loading-text" style={{ color: "#E1432E" }}>{error}</div>
             )}
-            {!loadingText && data && <div id="simulator" className="simulator-wrapper"><Cards /></div>}
+            {!loadingText && data && (
+              <div id="simulator" className="simulator-wrapper">
+                <Cards />
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* ======= Styles: orientiert am Webflow-Original & fully responsive ======= */}
+      {/* ======= Styles: Webflow-Optik + Fonts + Responsiveness ======= */}
       <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap');
+
         .review-container{font-family:'Poppins',sans-serif;max-width:1207px;margin:auto;padding:80px 10px;border-radius:16px;background:url("https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689acdb9f72cb41186204eda_stars-rating.webp") center/cover no-repeat}
         .section-title{max-width:975px;font-family:'Outfit',sans-serif;color:#010101;font-weight:400!important;margin:0 auto;font-size:48px;line-height:120%;text-align:center}
         .review-card{max-width:755px;margin:40px auto 0;padding:40px;border-radius:8px;background:#fff}
+
         .search-box{width:100%;max-width:675px;padding:9px 20px;border:1px solid rgba(1,1,1,.1);border-radius:8px;font-family:Poppins;font-size:18px;line-height:150%;outline:none;box-sizing:border-box}
-        .search-box:focus{border-color:#49a84c} .search-box.attention{animation:breathe 2.2s ease-in-out infinite}
+        .search-box:focus{border-color:#49a84c}
+        .search-box.attention{animation:breathe 2.2s ease-in-out infinite}
         @keyframes breathe{0%{transform:scale(.985);box-shadow:0 0 0 rgba(73,168,76,0)}50%{transform:scale(1);box-shadow:0 10px 28px rgba(73,168,76,.18)}100%{transform:scale(.985);box-shadow:0 0 0 rgba(73,168,76,0)}}
-        .search-hint{font-family:Poppins,sans-serif;font-size:14px;line-height:1.45;text-align:center;color:rgba(1,1,1,.78);margin-top:8px}
+
         .loading-text{color:#010101;margin-top:8px;font-size:18px;font-weight:600;text-align:center}
 
         .review-row{display:flex;align-items:center;width:100%;max-width:675px;margin:24px auto 0;justify-content:space-between;gap:31px}
         .rating-chip{height:100%;text-align:center;padding:8px 12px;border-radius:6px;font-size:15px;font-weight:600;white-space:nowrap}
-        .positive-chip{background-color:#49A84C1F;color:#49A84C} .negative-chip{background-color:#E1432E1F;color:#FF473F}
+        .positive-chip{background-color:#49A84C1F;color:#49A84C}
+        .negative-chip{background-color:#E1432E1F;color:#FF473F}
 
         .rating-card{overflow:hidden;width:100%;height:174px;max-width:274px;border:1px solid rgba(225,67,46,.12);border-radius:8px}
-        .card-header{display:flex;justify-content:center;align-items:center;height:42px;font-size:20px;font-family:Poppins;font-weight:500;color:#fff}
-        .header-current{background-color:#E0422F} .header-after{background-color:#49A84C}
+        .card-header{display:flex;justify-content:center;align-items:center;height:42px;font-size:20px;font-family:'Outfit',sans-serif;font-weight:600;color:#fff}
+        .header-current{background-color:#E0422F}
+        .header-after{background-color:#49A84C}
         .card-body{display:flex;align-items:center;width:100%;padding:14px;gap:15px}
         .review-count{font-family:Poppins;color:rgba(1,1,1,.7);font-size:14px;font-weight:300;line-height:120%}
-        .rating-value{margin:0;opacity:.6;font-family:'Outfit',sans-serif;color:#010101;font-size:27px!important;font-weight:600;line-height:100%}
-        .visibility-pill{margin:6px 20px 13px 14px;width:100%;max-width:238px;padding:8px 16px;border-radius:69px;background:rgba(255,71,63,.12);font-family:Outfit;color:#FF473F;font-size:14px;line-height:100%}
+        .rating-value{margin:0;opacity:.9;font-family:'Outfit',sans-serif;color:#010101;font-size:27px!important;font-weight:700;line-height:100%}
+        .visibility-pill{margin:6px 20px 13px 14px;width:100%;max-width:238px;padding:8px 16px;border-radius:69px;background:rgba(255,71,63,.12);font-family:'Outfit',sans-serif;color:#FF473F;font-size:14px;line-height:100%}
         .visibility-green{background:#E8F5E9!important;color:#49A84C!important}
 
         .rating-block{text-align:center;display:flex;flex-direction:column;width:100%;max-width:341px;margin-left:auto;justify-content:end;position:relative;margin-bottom:20px;z-index:2}
         .line-top{width:100%;display:block;margin:0 auto 6px}
-        .rating-text{font-family:Outfit,sans-serif;color:#e13121;display:flex;align-items:baseline;justify-content:center;gap:6px;font-size:19px;font-weight:600;line-height:1}
-        .rating-text .text,.rating-text #bad-count{font-size:21px;font-weight:800;color:#e13121;display:inline-block;line-height:1}
-        .rating-text .icon,.rating-text .close{font-size:16px;color:#FF473F;display:inline-block;line-height:1}
+        .rating-text{font-family:'Outfit',sans-serif;color:#e13121;display:flex;align-items:baseline;justify-content:center;gap:6px;font-size:19px;font-weight:600;line-height:1}
+        .rating-text .text,#bad-count{font-size:21px;font-weight:800;color:#e13121;line-height:1}
+        .rating-text .icon,.rating-text .close{font-size:16px;color:#FF473F;line-height:1}
 
-        .remove-unlimited-3{background:#ebf7ee;padding:30px 20px;text-align:center;border-radius:16px;margin:20px auto;max-width:700px}
-        .remove-unlimited-p-2{font-family:Poppins;color:#010101;font-size:16px;line-height:100%}
-        .text-span-18{font-weight:700;color:#000} .green-number-2{color:#16a34a;font-weight:700}
-        .jetxt-button-review{display:inline-flex;align-items:center;justify-content:center;gap:10px;background:linear-gradient(90deg,#000,#333);color:#fff;font-size:16px;font-weight:500;padding:11px 16px;border:none;min-width:200px;border-radius:30px;cursor:pointer;transition:all .3s}
-        .black-white-btn-mid{background:linear-gradient(103.09deg,#676767 -0.61%,#010101 71.09%);border-right:1px solid #000000d6!important;border-left:1px solid #595959!important;box-shadow:-1px 4px 4px 0px #00000040}
-        .black-white-btn-mid:hover{background:linear-gradient(103.09deg,#ffffff,#cccccc);color:#000}
+        .option-hint{text-align:center;font-family:Poppins,sans-serif;font-size:15px;font-weight:500;margin:30px 0 -3px 0;color:#010101}
+        .option-row{display:flex;margin-top:24px;gap:20px;justify-content:center;flex-wrap:wrap}
+        .delete-option{flex:1 1 0;max-width:232px;padding:16px 16px;text-align:start;border:1px solid #eaf0fe;background:transparent;border-radius:10px;cursor:pointer;transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease}
+        .delete-option:hover{transform:translateY(-1px);box-shadow:0 2px 10px rgba(0,0,0,.06);border-color:#d6e5ff}
+        .delete-option.active{box-shadow:0 0 0 2px rgba(73,168,76,.25) inset;border-color:#49A84C}
+        .option-title{margin:0 0 6px 0;font-family:Poppins;color:#0e0e0e;font-size:22px;font-weight:700;line-height:120%}
+        .option-sub{margin-top:2px;font-family:Poppins;color:#1a1a1a;line-height:1.35}
+        .option-sub div:first-child{font-size:15px;font-weight:800;text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:2px;text-decoration-color:rgba(73,168,76,.55)}
+        .option-sub div:last-child{font-size:12.5px;font-weight:600;color:rgba(0,0,0,.62);letter-spacing:.1px}
 
         /* ---------- Responsive ---------- */
-        @media (max-width:991px){.review-container{padding:70px 10px}.section-title{max-width:550px;font-size:40px}}
+        @media (max-width:991px){
+          .review-container{padding:70px 10px}
+          .section-title{max-width:550px;font-size:40px}
+        }
         @media (max-width:767px){
           .review-container{padding:50px 10px}
           .section-title{font-size:36px}
@@ -332,6 +361,7 @@ export default function LiveSimulator({ onStart }) {
           .review-row{gap:12px}
           .review-row.stack{flex-direction:column}
           .search-box{font-size:16px;max-width:100%}
+          .option-title{font-size:20px}
         }
         @media (max-width:479px){
           .review-container{padding:40px 10px;border-radius:12px}
@@ -343,6 +373,8 @@ export default function LiveSimulator({ onStart }) {
           .card-header{height:35px}
           .rating-value{font-size:22px!important}
           .visibility-pill{padding:10px 13px;font-size:12px}
+          .delete-option{max-width:175px;padding:12px}
+          .option-title{font-size:16px}
         }
       `}</style>
     </>
