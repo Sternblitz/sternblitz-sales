@@ -1,66 +1,67 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Script from "next/script";
-import LiveSimulator from "../../components/LiveSimulator"; // Pfad passt zu deinem Setup
+import LiveSimulator from "../../components/LiveSimulator"; // passt zu deinem Setup
 
 export default function DashboardPage() {
-  // UI
-  const [showStage2, setShowStage2] = useState(false); // erst großer Button -> danach Rakete
+  // --- UI ---
   const [formOpen, setFormOpen] = useState(false);
   const formRef = useRef(null);
 
-  // Prefill aus Simulator
-  const [profile, setProfile] = useState({ name: "", address: "", url: "" });
+  // --- Auswahl aus Simulator (persist) ---
   const [option, setOption] = useState("123"); // "123" | "12" | "1" | "custom"
 
-  // Formular-Felder
-  const [customCount, setCustomCount] = useState("");
-  const [customNotes, setCustomNotes] = useState(""); // <— Freitext „individuelle Wünsche“
+  // --- Google-Profil (immer editierbar + Autocomplete) ---
+  const formGoogleInputRef = useRef(null);
+  const [googleField, setGoogleField] = useState("");   // editierbares Feld
+  const [googleUrl, setGoogleUrl] = useState("");       // URL, wenn aus Places
+
+  // --- Kontaktdaten & Custom Notes ---
   const [company, setCompany] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [customNotes, setCustomNotes] = useState(""); // Freitext für individuelle Löschungen
 
-  // Readable Profil-Text
-  const googleProfileText = useMemo(() => {
-    const { name, address } = profile || {};
-    if (!name && !address) return "";
-    return `${name}${address ? ", " + address : ""}`;
-  }, [profile]);
+  // --- Helpers ---
+  const openFormAndScroll = () => {
+    setFormOpen(true);
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  };
 
-  // sessionStorage + Events vom Simulator
   const pullFromSession = () => {
     try {
+      // Profil aus Simulator
       const raw = sessionStorage.getItem("sb_selected_profile");
       if (raw) {
         const p = JSON.parse(raw);
-        setProfile({ name: p?.name || "", address: p?.address || "", url: p?.url || "" });
+        const preset = [p?.name || "", p?.address || ""].filter(Boolean).join(", ");
+        setGoogleField((prev) => prev || preset); // nur vorfüllen, wenn der User noch nix getippt hat
+        setGoogleUrl(p?.url || "");
+        if (!company && p?.name) setCompany(p.name);
       }
       const opt = sessionStorage.getItem("sb_selected_option");
       if (opt) setOption(opt);
     } catch {}
   };
 
-  const scrollToForm = () => {
-    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
   useEffect(() => {
-    // Prefill direkt bei Mount
     pullFromSession();
 
-    // Simulator feuert, wenn user sucht/enter drückt
+    // Simulator feuert -> Formular auf
     const onStart = (e) => {
       const { name = "", address = "", url = "" } = e.detail || {};
-      setProfile({ name, address, url });
-      if (!company) setCompany(name || "");
-      const opt = sessionStorage.getItem("sb_selected_option");
-      if (opt) setOption(opt);
-      setShowStage2(true);
-      setFormOpen(true);
-      scrollToForm();
+      const preset = [name, address].filter(Boolean).join(", ");
+      setGoogleField(preset);
+      setGoogleUrl(url || "");
+      if (!company && name) setCompany(name);
+      try {
+        const opt = sessionStorage.getItem("sb_selected_option");
+        if (opt) setOption(opt);
+      } catch {}
+      openFormAndScroll();
     };
 
     const onOpt = () => {
@@ -77,32 +78,8 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // CTA 1 -> danach Rakete anzeigen
-  const handleStage1 = () => {
-    pullFromSession();
-    setShowStage2(true);
-  };
-
-  // Rakete -> Formular togglen
-  const handleStage2 = () => {
-    pullFromSession();
-    setFormOpen((v) => !v);
-    if (!formOpen) scrollToForm();
-  };
-
-  // Option lokal + persistieren
-  const onOptionChange = (val) => {
-    setOption(val);
-    try {
-      sessionStorage.setItem("sb_selected_option", val);
-    } catch {}
-  };
-
-  // === Google Places im FORMULAR (nur falls kein Profil aus Simulator) ===
-  const formGoogleInputRef = useRef(null);
+  // --- Google Maps Autocomplete (im Formular, immer editierbar) ---
   const onMapsLoaded = () => {
-    // Wenn das Profil schon gefüllt ist, kein Formular-Autocomplete nötig
-    if (googleProfileText) return;
     try {
       const g = window.google;
       if (!g?.maps?.places || !formGoogleInputRef.current) return;
@@ -115,34 +92,43 @@ export default function DashboardPage() {
         const name = place?.name || "";
         const address = place?.formatted_address || "";
         const url = place?.url || "";
-        const sel = { name, address, url };
-        setProfile(sel);
+        const preset = [name, address].filter(Boolean).join(", ");
+        setGoogleField(preset);
+        setGoogleUrl(url || "");
         try {
-          sessionStorage.setItem("sb_selected_profile", JSON.stringify(sel));
+          sessionStorage.setItem(
+            "sb_selected_profile",
+            JSON.stringify({ name, address, url })
+          );
         } catch {}
+        if (!company && name) setCompany(name);
       });
     } catch (e) {
       console.warn("Form-Autocomplete init error:", e);
     }
   };
 
-  // Submit (validiert Google-Profil)
+  // --- User wechselt Option im Formular ---
+  const onOptionChange = (val) => {
+    setOption(val);
+    try {
+      sessionStorage.setItem("sb_selected_option", val);
+    } catch {}
+  };
+
+  // --- Absenden (nur Demo – deploy-safe) ---
   const onSubmit = (e) => {
     e.preventDefault();
-
-    // Wenn kein Google-Profil gesetzt wurde, aborten + Fokus aufs Formularfeld
-    if (!googleProfileText.trim()) {
-      alert("Bitte wähle dein Google-Profil über das Suchfeld aus.");
+    if (!googleField.trim()) {
+      alert("Bitte wähle dein Google-Profil (Suchfeld) aus oder gib es ein.");
       formGoogleInputRef.current?.focus();
       return;
     }
-
     const payload = {
-      googleProfile: googleProfileText,
-      googleUrl: profile?.url || "",
+      googleProfile: googleField.trim(),
+      googleUrl: googleUrl || "",
       selectedOption: option,
-      customCount: option === "custom" ? Number(customCount || 0) : null,
-      customNotes: option === "custom" ? customNotes : "",
+      customNotes: option === "custom" ? customNotes.trim() : "",
       company,
       firstName,
       lastName,
@@ -150,85 +136,65 @@ export default function DashboardPage() {
       phone,
       submittedAt: new Date().toISOString(),
     };
-
     try {
       sessionStorage.setItem("sb_checkout_payload", JSON.stringify(payload));
     } catch {}
-
     console.log("Lead payload:", payload);
     alert("Danke! Wir haben deine Angaben vorgemerkt. (Nächster Step: Signatur + PDF + E-Mail)");
   };
 
   return (
     <main className="sb-dashboard-wrap">
-      {/* Google Maps Script nur einmal laden (harmlos, falls Simulator es schon hat) */}
+      {/* Google Maps Script für Autocomplete im Formular */}
       <Script
         src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`}
         strategy="afterInteractive"
         onLoad={onMapsLoaded}
       />
 
-      {/* 1) Live-Simulator */}
+      {/* Live-Simulator bleibt oben */}
       <LiveSimulator />
 
-      {/* 2) EIN großer Button – erst sichtbar */}
-      {!showStage2 && (
-        <div className="cta-stage1">
-          <button className="big-start-btn" onClick={handleStage1}>
-            Jetzt loslegen
-          </button>
-        </div>
-      )}
-
-      {/* 3) Danach: Raketen-Button (ersetzt den ersten) */}
-      {showStage2 && (
-        <div className="cta-stage2">
-          <button className={`rocket-btn ${formOpen ? "active" : ""}`} onClick={handleStage2}>
+      {/* EINZIGER Button → öffnet direkt das Formular */}
+      {!formOpen && (
+        <div className="cta-one">
+          <button className="rocket-btn" onClick={openFormAndScroll}>
             <span className="emoji">🚀</span>
             <span>Jetzt loslegen</span>
           </button>
-          <p className="cta-sub">
-            Wir füllen automatisch mit deinem Google-Profil & deiner Auswahl aus dem Simulator vor.
-          </p>
         </div>
       )}
 
-      {/* 4) Formular */}
-      <section ref={formRef} className={`drawer ${formOpen ? "open" : ""}`} aria-hidden={!formOpen}>
+      {/* Formular – mit optionalem Hintergrund wie beim Simulator */}
+      <section
+        ref={formRef}
+        className={`drawer ${formOpen ? "open" : ""}`}
+        aria-hidden={!formOpen}
+      >
         <form className="lead-form" onSubmit={onSubmit} autoComplete="on">
-          {/* Google-Profil */}
+          {/* Google-Profil (immer editierbar + Autocomplete) */}
           <div className="field">
             <label>Google-Profil</label>
-
-            {/* Wenn schon ein Profil vorhanden ist: readOnly + Link */}
-            {googleProfileText ? (
-              <div className="profile-input">
-                <input
-                  type="text"
-                  value={googleProfileText}
-                  readOnly
-                  aria-readonly
-                  placeholder="Wird automatisch aus dem Live-Simulator übernommen"
-                />
-                {profile?.url ? (
-                  <a className="profile-link" href={profile.url} target="_blank" rel="noreferrer">
-                    Profil öffnen ↗
-                  </a>
-                ) : null}
-              </div>
-            ) : (
-              // Falls leer: Google Places Autocomplete Pflichtfeld
-              <div className="profile-input">
-                <input
-                  ref={formGoogleInputRef}
-                  type="search"
-                  inputMode="search"
-                  placeholder='Dein Google-Unternehmen suchen… z. B. "Restaurant XY"'
-                  required
-                />
-                <span className="profile-hint">Pflichtfeld</span>
-              </div>
-            )}
+            <div className="profile-input">
+              <input
+                ref={formGoogleInputRef}
+                type="search"
+                inputMode="search"
+                placeholder='Dein Google-Unternehmen suchen oder eintragen… z. B. "Restaurant XY, Berlin"'
+                required
+                value={googleField}
+                onChange={(e) => {
+                  setGoogleField(e.target.value);
+                  // Wenn der User manuell tippt, alte URL verwerfen (nicht mehr verlässlich)
+                  if (googleUrl) setGoogleUrl("");
+                }}
+              />
+              {googleUrl ? (
+                <a className="profile-link" href={googleUrl} target="_blank" rel="noreferrer">
+                  Profil öffnen ↗
+                </a>
+              ) : null}
+            </div>
           </div>
 
           {/* Auswahl: welche Bewertungen löschen */}
@@ -281,30 +247,16 @@ export default function DashboardPage() {
             </div>
 
             {option === "custom" && (
-              <>
-                <div className="field inline">
-                  <label>Wie viele sollen gelöscht werden?</label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    placeholder="z. B. 17"
-                    value={customCount}
-                    onChange={(e) => setCustomCount(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="field">
-                  <label>Schreibe hier deine individuellen Wünsche</label>
-                  <textarea
-                    rows={4}
-                    placeholder="Beschreibe kurz, was wir individuell löschen oder prüfen sollen…"
-                    value={customNotes}
-                    onChange={(e) => setCustomNotes(e.target.value)}
-                  />
-                </div>
-              </>
+              <div className="field">
+                <label>Schreibe hier deine individuellen Wünsche</label>
+                <textarea
+                  rows={4}
+                  placeholder="Beschreibe kurz, was wir individuell löschen oder prüfen sollen…"
+                  value={customNotes}
+                  onChange={(e) => setCustomNotes(e.target.value)}
+                  required
+                />
+              </div>
             )}
           </div>
 
@@ -378,47 +330,37 @@ export default function DashboardPage() {
         </form>
       </section>
 
-      {/* Styles */}
+      {/* Styles (clean & modern, deploy-safe) */}
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Outfit:wght@400;600;700&display=swap');
 
         .sb-dashboard-wrap{max-width:1208px;margin:0 auto;padding:0 12px 80px}
 
-        /* EIN großer, schöner Button */
-        .cta-stage1{display:flex;justify-content:center;margin-top:22px}
-        .big-start-btn{
-          appearance:none;border:none;cursor:pointer;
-          padding:16px 26px;border-radius:16px;
-          font-weight:800;font-size:18px;letter-spacing:.2px;
-          background:linear-gradient(103deg,#111,#1f1f1f 60%, #0c0c0c 100%);
-          color:#fff;box-shadow:0 14px 40px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.06);
-          transition:transform .14s ease, box-shadow .22s ease, background .22s ease;
-        }
-        .big-start-btn:hover{transform:translateY(-1px);box-shadow:0 20px 48px rgba(0,0,0,.32)}
-
-        /* Rakete */
-        .cta-stage2{display:flex;flex-direction:column;align-items:center;margin-top:14px}
+        /* EIN Button: Rakete */
+        .cta-one{display:flex;justify-content:center;margin-top:18px}
         .rocket-btn{
           display:inline-flex;align-items:center;gap:10px;cursor:pointer;
           border:1px solid rgba(0,0,0,.65); border-radius:16px;
-          padding:16px 22px;font-weight:800;color:#fff;font-size:16px;
+          padding:16px 24px;font-weight:800;color:#fff;font-size:18px;
           background:linear-gradient(103deg,#151515,#2b2b2b 55%, #0c0c0c 100%);
-          box-shadow:0 12px 30px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.04);
+          box-shadow:0 14px 40px rgba(0,0,0,.26), inset 0 1px 0 rgba(255,255,255,.05);
           transition:transform .14s ease, box-shadow .22s ease, background .25s ease;
         }
         .rocket-btn .emoji{font-size:20px;transform:translateY(-1px)}
-        .rocket-btn:hover{transform:translateY(-1px);box-shadow:0 16px 40px rgba(0,0,0,.28)}
+        .rocket-btn:hover{transform:translateY(-1px);box-shadow:0 18px 48px rgba(0,0,0,.32)}
         .rocket-btn.active{outline:2px solid rgba(73,168,76,.35)}
-        .cta-sub{margin:10px 0 0;color:#6b7280;font-size:13px}
 
-        /* Drawer */
+        /* Drawer (mit optionalem Hintergrund wie im Simulator) */
         .drawer{
           max-width:880px;margin:18px auto 0;
-          background:rgba(255,255,255,.9);backdrop-filter:blur(8px);
+          background:rgba(255,255,255,.92);
+          backdrop-filter:blur(8px);
           border:1px solid rgba(0,0,0,.06);border-radius:16px;
           box-shadow:0 20px 60px rgba(0,0,0,.12);
           overflow:hidden;transform:translateY(-6px) scale(.985);opacity:0;pointer-events:none;
           transition:transform .28s ease, opacity .28s ease;
+          /* 👇 falls du den gleichen BG wie beim Simulator willst, nimm diese Zeile raus aus dem Kommentar */
+          /* background: url("https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689acdb9f72cb41186204eda_stars-rating.webp") center/cover no-repeat, rgba(255,255,255,.92); */
         }
         .drawer.open{transform:translateY(0) scale(1);opacity:1;pointer-events:auto}
 
@@ -427,8 +369,6 @@ export default function DashboardPage() {
         .group-title{font:700 18px/1 Poppins,system-ui;color:#0f172a;margin-bottom:10px}
 
         .field{display:flex;flex-direction:column;gap:8px;margin-top:12px}
-        .field.inline{flex-direction:row;align-items:center;gap:12px}
-        .field.inline label{min-width:260px}
         .field label{font:600 13px/1.2 Poppins,system-ui;color:#475569}
         .field input,.field textarea{
           border-radius:12px;border:1px solid rgba(0,0,0,.1);padding:10px 14px;
@@ -441,7 +381,6 @@ export default function DashboardPage() {
         .profile-input{display:flex;gap:10px;align-items:center}
         .profile-input input{flex:1}
         .profile-link{font-size:13px;color:#2563eb;text-decoration:underline;white-space:nowrap}
-        .profile-hint{font-size:12px;color:#6b7280;white-space:nowrap}
 
         .row{display:flex;gap:12px}
         .half{flex:1}
@@ -477,11 +416,9 @@ export default function DashboardPage() {
           .drawer{margin:14px 0;border-radius:14px}
           .lead-form{padding:16px}
           .row{flex-direction:column}
-          .field.inline{flex-direction:column;align-items:flex-start}
-          .field.inline label{min-width:unset}
           .checks{grid-template-columns:1fr}
           .submit-btn{width:100%}
-          .big-start-btn{width:100%}
+          .rocket-btn{width:100%;justify-content:center}
         }
       `}</style>
     </main>
