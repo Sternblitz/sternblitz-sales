@@ -12,63 +12,68 @@ export default function LiveSimulator() {
 
   return (
     <>
-      {/* 1) initAutocomplete VOR dem Google-Script definieren */}
+      {/* Fonts wie im Webflow laden (sichert exakte Optik) */}
+      <Script id="sb-fonts" strategy="beforeInteractive">{`
+        (function(){
+          var l1=document.createElement('link'); l1.rel='stylesheet';
+          l1.href='https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap';
+          document.head.appendChild(l1);
+          var l2=document.createElement('link'); l2.rel='stylesheet';
+          l2.href='https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap';
+          document.head.appendChild(l2);
+        })();
+      `}</Script>
+
+      {/* initAutocomplete definieren, bevor das Google-Script lädt */}
       <Script id="sb-init-autocomplete" strategy="beforeInteractive">{`
         (function(){
-          // Google ruft diese Funktion nach dem Laden auf (callback=initAutocomplete)
           window.initAutocomplete = function(){
-            try {
+            try{
               var inp = document.getElementById("company-input");
               if (!inp || !(window.google && google.maps && google.maps.places)) return;
 
-              // Hint live aus/einblenden
               var hint = document.getElementById("search-hint");
-              if (inp && hint) {
+              if (inp && hint){
                 inp.addEventListener("input", function(){
-                  hint.style.display = inp.value.trim().length > 0 ? "none" : "";
+                  hint.style.display = inp.value.trim().length>0 ? "none" : "";
                 });
               }
 
               var ac = new google.maps.places.Autocomplete(inp, {
-                types: ["establishment"],
-                fields: ["name", "formatted_address", "place_id", "url", "rating", "user_ratings_total"]
+                types:["establishment"], fields:["name","formatted_address","place_id","url"]
               });
 
               ac.addListener("place_changed", function(){
                 var place = ac.getPlace();
                 if (!place || !place.name) return;
 
-                // Event fürs Dashboard
+                // Prefill-Event für dein Dashboard (falls benötigt)
                 window.dispatchEvent(new CustomEvent("sb:place-selected", {
                   detail: {
                     name: place.name || "",
-                    address: (place.formatted_address || ""),
-                    place_id: (place.place_id || ""),
-                    url: (place.url || (place.place_id ? "https://www.google.com/maps/place/?q=place_id:" + place.place_id : "")),
-                    rating: (place.rating == null ? null : place.rating),
-                    reviews: (place.user_ratings_total == null ? null : place.user_ratings_total)
+                    address: place.formatted_address || "",
+                    place_id: place.place_id || "",
+                    url: place.url || (place.place_id ? "https://www.google.com/maps/place/?q=place_id:"+place.place_id : "")
                   }
                 }));
 
-                // ↪ direkt die Reviews laden & rendern
-                if (typeof window.sbFetchData === "function") {
+                // Reviews abrufen + rendern
+                if (typeof window.sbFetchData === "function"){
                   window.sbFetchData(place.name, place.formatted_address || "");
                 }
               });
-            } catch (e) {
-              console.error("initAutocomplete error:", e);
-            }
+            }catch(e){ console.error("initAutocomplete error:", e); }
           };
         })();
       `}</Script>
 
-      {/* 2) Google Maps JS mit Callback */}
+      {/* Google Maps JS mit Callback */}
       <Script
         src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places&callback=initAutocomplete`}
         strategy="afterInteractive"
       />
 
-      {/* 3) HTML-Struktur */}
+      {/* HTML-Struktur 1:1 */}
       <div className="review-container">
         <h3 className="section-title">
           <img
@@ -95,108 +100,71 @@ export default function LiveSimulator() {
         </div>
       </div>
 
-      {/* 4) Simulator-Logik: Render + Fetch + CTA + Enter-Suche */}
+      {/* Logik: API-Fetch, Render, Enter-Suche, CTA */}
       <Script id="sb-simulator-logic" strategy="afterInteractive">{`
         (function(){
-          var REVIEW_API = (typeof process !== "undefined" && process.env && process.env.NEXT_PUBLIC_REVIEW_API)
+          var REVIEW_API = (typeof process!=="undefined" && process.env && process.env.NEXT_PUBLIC_REVIEW_API)
             ? process.env.NEXT_PUBLIC_REVIEW_API
             : "https://sternblitz-review-simulator-cwnz.vercel.app/api/reviews";
           var PAUSCHAL = 299;
 
-          function q(s, p){ return (p || document).querySelector(s); }
-          function fmt1(n){ return Number(n).toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }); }
+          function q(s,p){ return (p||document).querySelector(s); }
+          function fmt1(n){ return Number(n).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1}); }
 
-          // Atmung / Placeholder-Zyklus
+          // Placeholder-Atmung + Beispiele
           function typePlaceholder(el, text, speed){
-            var i = 0; if (!speed) speed = 40;
-            el.setAttribute('placeholder', '');
-            var id = setInterval(function(){
-              el.setAttribute('placeholder', text.slice(0, i++));
-              if (i > text.length) clearInterval(id);
-            }, speed);
+            var i=0; speed=speed||40; el.setAttribute('placeholder','');
+            var id=setInterval(function(){ el.setAttribute('placeholder', text.slice(0, i++)); if(i>text.length) clearInterval(id); }, speed);
             return id;
           }
           function startPlaceholderCycle(el){
-            var examples = [
-              'Dein Unternehmen suchen...',
-              'z.B. Café Sonnenschein, Köln',
-              'z.B. Pizzeria Milano, Hannover',
-              'Dein Unternehmen suchen...',
-              'z.B. Autohaus Schmidt, Hamburg',
-              'z.B. Dr. Herrmann, Berlin Mitte'
-            ];
-            var idx = 0, typingId = null;
-            function play(){
-              if (el.classList.contains('user-typing') || document.activeElement === el) return;
-              typingId = typePlaceholder(el, examples[idx], 35);
-              idx = (idx + 1) % examples.length;
-            }
-            play();
-            var intervalId = setInterval(play, 5000);
-            return function(){ clearInterval(intervalId); if (typingId) clearInterval(typingId); };
+            var examples=['Dein Unternehmen suchen...','z.B. Café Sonnenschein, Köln','z.B. Pizzeria Milano, Hannover','Dein Unternehmen suchen...','z.B. Autohaus Schmidt, Hamburg','z.B. Dr. Herrmann, Berlin Mitte'];
+            var idx=0, typingId=null;
+            function play(){ if(el.classList.contains('user-typing')||document.activeElement===el) return; typingId=typePlaceholder(el, examples[idx], 35); idx=(idx+1)%examples.length; }
+            play(); var intervalId=setInterval(play, 5000);
+            return function(){ clearInterval(intervalId); if(typingId) clearInterval(typingId); };
           }
           (function attachAttention(){
-            var inp = q('#company-input');
-            if (!inp) return;
+            var inp=q('#company-input'); if(!inp) return;
             inp.classList.add('attention');
-            var stopCycle = startPlaceholderCycle(inp);
-            var stopAttention = function(){
-              inp.classList.add('user-typing'); inp.classList.remove('attention'); stopCycle();
-            };
-            ['focus','keydown','input','paste'].forEach(function(ev){
-              inp.addEventListener(ev, stopAttention, { once:true });
-            });
-            inp.addEventListener('blur', function(){
-              if (!inp.value.trim()) {
-                inp.classList.remove('user-typing');
-                inp.classList.add('attention');
-                startPlaceholderCycle(inp);
-              }
-            });
+            var stopCycle=startPlaceholderCycle(inp);
+            var stopAttention=function(){ inp.classList.add('user-typing'); inp.classList.remove('attention'); stopCycle(); };
+            ['focus','keydown','input','paste'].forEach(function(ev){ inp.addEventListener(ev, stopAttention,{once:true}); });
+            inp.addEventListener('blur', function(){ if(!inp.value.trim()){ inp.classList.remove('user-typing'); inp.classList.add('attention'); startPlaceholderCycle(inp);} });
           })();
 
-          function computeCurrentVisibility(rating) {
-            if (rating >= 4.8) return 0;
-            if (rating >= 4.2) {
-              var norm = (4.8 - rating) / 0.6;
-              return -Math.round(170 * Math.sqrt(norm));
-            }
-            var below = Math.round((4.0 - rating) * 10);
-            return -170 - below * 3;
+          function computeCurrentVisibility(rating){
+            if (rating>=4.8) return 0;
+            if (rating>=4.2){ var norm=(4.8-rating)/0.6; return -Math.round(170*Math.sqrt(norm)); }
+            var below=Math.round((4.0-rating)*10);
+            return -170 - below*3;
           }
-          function computeImprovementVisibility(oldRating, newRating) {
-            if (newRating <= oldRating) return 0;
-            var possible = 5 - oldRating;
-            if (possible <= 0) return 0;
-            var frac = (newRating - oldRating) / possible;
-            return Math.min(200, Math.round(frac * 200));
+          function computeImprovementVisibility(oldRating,newRating){
+            if(newRating<=oldRating) return 0;
+            var possible=5-oldRating; if(possible<=0) return 0;
+            var frac=(newRating-oldRating)/possible;
+            return Math.min(200, Math.round(frac*200));
           }
 
-          function render(name, avg, total, breakdown) {
-            var sim = q("#simulator");
-            sim.innerHTML = "";
+          function render(name, avg, total, breakdown){
+            var sim=q("#simulator"); sim.innerHTML="";
 
-            var distHTML = [5,4,3,2,1].map(function(s){
-              var count = Number(breakdown[s] || 0);
-              return s >= 4
-                ? '<div class="rating-chip positive-chip">' + s + ' ⭐ <span>' + count.toLocaleString() + '</span></div>'
-                : '<div class="rating-chip negative-chip">⚠️ ' + s + ' ⭐ <span>' + count.toLocaleString() + '</span></div>';
+            var distHTML=[5,4,3,2,1].map(function(s){
+              var count=Number(breakdown[s]||0);
+              return s>=4
+               ? '<div class="rating-chip positive-chip">'+s+' ⭐ <span>'+count.toLocaleString()+'</span></div>'
+               : '<div class="rating-chip negative-chip">⚠️ '+s+' ⭐ <span>'+count.toLocaleString()+'</span></div>';
             }).join("");
-            sim.insertAdjacentHTML("beforeend", '<div class="review-row">' + distHTML + '</div>');
+            sim.insertAdjacentHTML("beforeend", '<div class="review-row">'+distHTML+'</div>');
 
-            var badCount = (breakdown[1]||0)+(breakdown[2]||0)+(breakdown[3]||0);
-            var curVis = computeCurrentVisibility(avg);
+            var badCount=(breakdown[1]||0)+(breakdown[2]||0)+(breakdown[3]||0);
+            var curVis=computeCurrentVisibility(avg);
 
             sim.insertAdjacentHTML("beforeend",
               '<div class="rating-block">'
-              + '<img src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689f5500b57e679a1940c168_bracket-img.webp" alt="curve line" class="line-top">'
-              + '<div class="rating-text">'
-              +   '<span class="icon">⚠️</span>'
-              +   '<span class="text">1–3 Sterne: <strong id="bad-count">' + badCount.toLocaleString() + '</strong></span>'
-              +   '<span class="close">❌</span>'
-              + '</div>'
-              + '<img src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/68a03d044d9deabf71840200_line.svg" alt="underline" class="line-bottom">'
-              + '</div>'
+              + '<img src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689f5500b57e679a1940c168_bracket-img.webp" class="line-top" alt="curve">'
+              + '<div class="rating-text"><span class="icon">⚠️</span><span class="text">1–3 Sterne: <strong id="bad-count">'+badCount.toLocaleString()+'</strong></span><span class="close">❌</span></div>'
+              + '<img src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/68a03d044d9deabf71840200_line.svg" class="line-bottom" alt="underline"></div>'
             );
 
             sim.insertAdjacentHTML("beforeend",
@@ -204,25 +172,17 @@ export default function LiveSimulator() {
               + '  <div class="rating-card">'
               + '    <div class="card-header header-current"><span>AKTUELL</span></div>'
               + '    <div class="card-body">'
-              + '      <img class="star-icon" style="width:100%; max-width:48px;" src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689f5709ae0db7541734c589_red-cross.webp" alt="Sterne"/>'
-              + '      <div class="before-after-text">'
-              + '        <h2 class="rating-value" style="margin:0;"> ' + fmt1(avg) + ' ⭐ <br/></h2>'
-              + '        <p class="review-count" style="margin:0;">' + total.toLocaleString() + ' Bewertungen</p>'
-              + '      </div>'
+              + '      <img class="star-icon" style="width:100%;max-width:48px;" src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689f5709ae0db7541734c589_red-cross.webp" alt="Sterne"/>'
+              + '      <div class="before-after-text"><h2 class="rating-value" style="margin:0;"> '+fmt1(avg)+' ⭐ <br/></h2><p class="review-count" style="margin:0;">'+total.toLocaleString()+' Bewertungen</p></div>'
               + '    </div>'
-              + '    <p class="visibility-pill"><span style="font-weight:bold !important;"> ' + curVis + '% </span> Online-Sichtbarkeit</p>'
+              + '    <p class="visibility-pill"><span style="font-weight:bold !important;"> '+curVis+'% </span> Online-Sichtbarkeit</p>'
               + '  </div>'
-              + '  <div class="arrow-icon" style="font-size:28px;font-weight:700;margin:0 6px;">'
-              + '    <img src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689ec12c6a1613f9c349ca46_yellow-arrow.avif" alt="Sterne"/>'
-              + '  </div>'
+              + '  <div class="arrow-icon" style="font-size:28px;font-weight:700;margin:0 6px;"><img src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689ec12c6a1613f9c349ca46_yellow-arrow.avif" alt="→"/></div>'
               + '  <div class="rating-card">'
               + '    <div class="card-header header-after"><span>NACH LÖSCHUNG</span></div>'
               + '    <div class="card-body">'
-              + '      <img class="star-icon" style="width:100%; max-width:48px;" src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689f5706192ab7698165e044_green-light.webp" alt="Sterne"/>'
-              + '      <div class="before-after-text ">'
-              + '        <h2 id="h-new" class="rating-value shake" style="margin:0;"></h2>'
-              + '        <p id="count-new" class="review-count" style="margin:0;"></p>'
-              + '      </div>'
+              + '      <img class="star-icon" style="width:100%;max-width:48px;" src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689f5706192ab7698165e044_green-light.webp" alt="Sterne"/>'
+              + '      <div class="before-after-text "><h2 id="h-new" class="rating-value shake" style="margin:0;"></h2><p id="count-new" class="review-count" style="margin:0;"></p></div>'
               + '    </div>'
               + '    <p class="visibility-pill visibility-green" id="vis-new"><span style="font-weight:bold !important;">+0%</span> Online-Sichtbarkeit</p>'
               + '  </div>'
@@ -245,159 +205,111 @@ export default function LiveSimulator() {
             sim.insertAdjacentHTML("beforeend",
               '<p class="option-hint">Wie viele Sterne sollen weg? 👇</p>'
               + '<div class="option-row">'
-              + '  <div class="delete-option" id="btn-123" data-rem="1,2,3">'
-              + '    <span class="option-title">1–3 ⭐ löschen</span>'
-              + '    <div class="option-sub"><div>Entfernte: ' + ((breakdown[1]||0)+(breakdown[2]||0)+(breakdown[3]||0)) + '</div><div>Pauschal ' + PAUSCHAL + '€</div></div>'
-              + '  </div>'
-              + '  <div class="delete-option" id="btn-12" data-rem="1,2">'
-              + '    <span class="option-title">1–2 ⭐ löschen</span>'
-              + '    <div class="option-sub"><div>Entfernte: ' + ((breakdown[1]||0)+(breakdown[2]||0)) + '</div><div>Pauschal ' + PAUSCHAL + '€</div></div>'
-              + '  </div>'
-              + '  <div class="delete-option" id="btn-1" data-rem="1">'
-              + '    <span class="option-title">1 ⭐ löschen</span>'
-              + '    <div class="option-sub"><div>Entfernte: ' + (breakdown[1]||0) + '</div><div>Pauschal ' + PAUSCHAL + '€</div></div>'
-              + '  </div>'
+              + '  <div class="delete-option" id="btn-123" data-rem="1,2,3"><span class="option-title">1–3 ⭐ löschen</span><div class="option-sub"><div>Entfernte: '+((breakdown[1]||0)+(breakdown[2]||0)+(breakdown[3]||0))+'</div><div>Pauschal '+PAUSCHAL+'€</div></div></div>'
+              + '  <div class="delete-option" id="btn-12" data-rem="1,2"><span class="option-title">1–2 ⭐ löschen</span><div class="option-sub"><div>Entfernte: '+((breakdown[1]||0)+(breakdown[2]||0))+'</div><div>Pauschal '+PAUSCHAL+'€</div></div></div>'
+              + '  <div class="delete-option" id="btn-1" data-rem="1"><span class="option-title">1 ⭐ löschen</span><div class="option-sub"><div>Entfernte: '+(breakdown[1]||0)+'</div><div>Pauschal '+PAUSCHAL+'€</div></div></div>'
               + '</div>'
-
               + '<div class="remove-unlimited-3">'
-              + '  <p class="remove-unlimited-p-2">'
-              + '    Lösche <span class="text-span-18">ALLE</span> schlechten Bewertungen für '
-              + '    <span class="green-number-2">€299</span>'
-              + '  </p>'
-              + '  <button class="black-white-btn-small jetxt-button-review black-white-btn-mid" id="cta-btn">'
-              + '    <span class="jetxt-btn">Jetzt loslegen</span>'
-              + '  </button>'
+              + '  <p class="remove-unlimited-p-2">Lösche <span class="text-span-18">ALLE</span> schlechten Bewertungen für <span class="green-number-2">€299</span></p>'
+              + '  <button class="black-white-btn-small jetxt-button-review black-white-btn-mid" id="cta-btn"><span class="jetxt-btn">Jetzt loslegen</span></button>'
               + '</div>'
-
-              + '<div class="note-text">'
-              + '  <img style="width:16px;" src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/68a00396345c18200df4a5b3_%F0%9F%94%8D.webp" alt="search-icon">'
-              + '  Hinweis: Diese Analyse ist eine Simulation. Reale Löschungen erfolgen nach Prüfung.'
-              + '</div>'
+              + '<div class="note-text"><img style="width:16px;" src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/68a00396345c18200df4a5b3_%F0%9F%94%8D.webp" alt="search-icon"> Hinweis: Diese Analyse ist eine Simulation. Reale Löschungen erfolgen nach Prüfung.</div>'
             );
 
-            function apply(removeArr, btn) {
+            function apply(removeArr, btn){
               Array.prototype.forEach.call(document.querySelectorAll(".delete-option"), function(b){ b.classList.remove("active"); });
               if (btn) btn.classList.add("active");
-              var kept = { 1:(breakdown[1]||0), 2:(breakdown[2]||0), 3:(breakdown[3]||0), 4:(breakdown[4]||0), 5:(breakdown[5]||0) };
-              removeArr.forEach(function(s){ kept[s] = 0; });
+              var kept={1:(breakdown[1]||0),2:(breakdown[2]||0),3:(breakdown[3]||0),4:(breakdown[4]||0),5:(breakdown[5]||0)};
+              removeArr.forEach(function(s){ kept[s]=0; });
+              var removed=removeArr.reduce(function(sum,s){ return sum+(breakdown[s]||0); },0);
+              var newTotal=Math.max(0,total-removed)||1;
+              var newSum=[1,2,3,4,5].reduce(function(a,s){ return a+(s*(kept[s]||0)); },0);
+              var newAvg=newSum/(newTotal||1);
 
-              var removed = removeArr.reduce(function(sum, s){ return sum + (breakdown[s] || 0); }, 0);
-              var newTotal = Math.max(0, total - removed) || 1;
-              var newSum = [1,2,3,4,5].reduce(function(a, s){ return a + (s * (kept[s]||0)); }, 0);
-              var newAvg = newSum / (newTotal || 1);
+              var hNew=q("#h-new"), cNew=q("#count-new"), visNew=q("#vis-new");
+              if (hNew) hNew.textContent="⚡ ⭐ "+fmt1(newAvg);
+              if (cNew) cNew.textContent=newTotal.toLocaleString()+" Bewertungen";
+              if (visNew) visNew.innerHTML='<span style="font-weight:bold !important;">+'+computeImprovementVisibility(avg,newAvg)+'%</span> Online-Sichtbarkeit';
 
-              var hNew = q("#h-new");
-              var cNew = q("#count-new");
-              var visNew = q("#vis-new");
-              if (hNew) hNew.textContent = "⚡ ⭐ " + fmt1(newAvg);
-              if (cNew) cNew.textContent = newTotal.toLocaleString() + " Bewertungen";
-              if (visNew) visNew.innerHTML = '<span style="font-weight:bold !important;">+' + computeImprovementVisibility(avg, newAvg) + '%</span> Online-Sichtbarkeit';
-
-              var miniOld = q("#mini-old");
-              var miniNew = q("#mini-new");
-              if (miniOld) miniOld.textContent = fmt1(avg);
-              if (miniNew) miniNew.textContent = fmt1(newAvg);
+              var miniOld=q("#mini-old"), miniNew=q("#mini-new");
+              if (miniOld) miniOld.textContent=fmt1(avg);
+              if (miniNew) miniNew.textContent=fmt1(newAvg);
             }
 
-            // Delegation für die drei Optionen
+            // Delegation für die drei Kacheln
             document.addEventListener("click", function(e){
-              var t = e.target.closest(".delete-option");
-              if (!t) return;
-              var ids = (t.getAttribute("data-rem") || "").split(",").map(function(x){ return Number(x.trim()); });
+              var t=e.target.closest(".delete-option"); if(!t) return;
+              var ids=(t.getAttribute("data-rem")||"").split(",").map(function(x){ return Number(x.trim()); });
               apply(ids, t);
             });
 
-            // CTA Button → Event für das Dashboard (Form öffnen)
-            var ctaBtn = document.getElementById("cta-btn");
-            if (ctaBtn) {
-              ctaBtn.addEventListener("click", function(){ window.dispatchEvent(new CustomEvent("sb:start-order")); });
-            }
+            // CTA → Signal ans Dashboard (Form öffnen)
+            var cta=document.getElementById("cta-btn");
+            if (cta){ cta.addEventListener("click", function(){ window.dispatchEvent(new CustomEvent("sb:start-order")); }); }
 
-            // Manuelle Suche via Enter
+            // Enter-Taste → manuelle Suche
             (function enableEnterSearch(){
-              var input = document.getElementById("company-input");
-              if (!input) return;
+              var input=document.getElementById("company-input"); if(!input) return;
               input.addEventListener("keydown", function(e){
-                if (e.key === "Enter") {
-                  var raw = input.value.trim();
-                  if (!raw) return;
-                  var parts = raw.split(",");
-                  var name = (parts.shift() || "").trim();
-                  var address = parts.join(",").trim();
-                  if (typeof window.sbFetchData === "function") {
-                    window.sbFetchData(name, address);
-                  }
+                if (e.key==="Enter"){
+                  var raw=input.value.trim(); if(!raw) return;
+                  var parts=raw.split(","), name=(parts.shift()||"").trim(), address=parts.join(",").trim();
+                  if (typeof window.sbFetchData==="function"){ window.sbFetchData(name, address); }
                 }
               });
             })();
 
             // Loader & Fetch
-            var loadingStopper = null;
-            function startLoadingCountdown(el, duration){
-              if (!duration) duration = 4;
-              var n = duration;
-              el.textContent = "Lade Bewertungen… " + n;
-              var id = setInterval(function(){
-                n--;
-                if (n > 0) el.textContent = "Lade Bewertungen… " + n;
-                else { el.textContent = "Lade Bewertungen…"; clearInterval(id); }
-              }, 1000);
-              return function(){ clearInterval(id); el.textContent = ""; };
+            var loadingStopper=null;
+            function startLoadingCountdown(el, duration){ duration=duration||4;
+              var n=duration; el.textContent="Lade Bewertungen… "+n;
+              var id=setInterval(function(){ n--; if(n>0) el.textContent="Lade Bewertungen… "+n; else { el.textContent="Lade Bewertungen…"; clearInterval(id);} },1000);
+              return function(){ clearInterval(id); el.textContent=""; };
             }
 
             function fetchData(name, address){
-              var out = q("#review-output");
-              var hint = q("#search-hint");
-              if (hint) hint.style.display = "none";
+              var out=q("#review-output"); var hint=q("#search-hint");
+              if (hint) hint.style.display="none";
+              if (loadingStopper){ loadingStopper(); loadingStopper=null; }
+              loadingStopper=startLoadingCountdown(out,4);
 
-              if (loadingStopper) { loadingStopper(); loadingStopper = null; }
-              loadingStopper = startLoadingCountdown(out, 4);
-
-              var url = REVIEW_API + "?name=" + encodeURIComponent(name) + "&address=" + encodeURIComponent(address);
-              fetch(url)
-                .then(function(r){ return r.json(); })
+              var url=REVIEW_API+"?name="+encodeURIComponent(name)+"&address="+encodeURIComponent(address);
+              fetch(url).then(function(r){ return r.json(); })
                 .then(function(d){
-                  if (loadingStopper) { loadingStopper(); loadingStopper = null; }
-                  out.textContent = "";
-                  // defensive fallbacks
-                  var avg = (d && typeof d.averageRating === "number") ? d.averageRating : 4.1;
-                  var total = (d && typeof d.totalReviews === "number") ? d.totalReviews : 250;
-                  var br = (d && d.breakdown) ? d.breakdown : {1:10,2:20,3:30,4:90,5:100};
+                  if (loadingStopper){ loadingStopper(); loadingStopper=null; }
+                  out.textContent="";
+                  var avg=(d&&typeof d.averageRating==="number")?d.averageRating:4.1;
+                  var total=(d&&typeof d.totalReviews==="number")?d.totalReviews:250;
+                  var br=(d&&d.breakdown)?d.breakdown:{1:10,2:20,3:30,4:90,5:100};
                   render(name, avg, total, br);
-                  // Default-Auswahl aktivieren (1-3)
-                  var btn123 = document.getElementById("btn-123");
-                  if (btn123) {
-                    var evt = new Event("click", { bubbles: true });
-                    btn123.dispatchEvent(evt);
-                  }
+                  // Default: 1-3 aktiv
+                  var btn=document.getElementById("btn-123");
+                  if (btn) btn.click();
                 })
                 .catch(function(e){
-                  if (loadingStopper) { loadingStopper(); loadingStopper = null; }
-                  out.textContent = "Fehler: " + (e && e.message ? e.message : e);
+                  if (loadingStopper){ loadingStopper(); loadingStopper=null; }
+                  out.textContent="Fehler: "+(e&&e.message?e.message:e);
                 });
             }
 
-            // 👉 global, damit Autocomplete & Enter darauf zugreifen
+            // global verfügbar machen
             window.sbFetchData = fetchData;
           })();
       `}</Script>
-      <Script id="sb-attach-fetch" strategy="afterInteractive">
-  {`
-    // Stelle sicher, dass window.sbFetchData aus dem Simulator-Logic-Skript global verfügbar ist
-    window.addEventListener("DOMContentLoaded", () => {
-      if (typeof window.sbFetchData === "function") {
-        console.log("[Sternblitz] Simulator bereit");
-      } else {
-        console.warn("[Sternblitz] sbFetchData nicht verfügbar – versuche später erneut...");
-        setTimeout(() => {
-          if (typeof window.sbFetchData === "function") console.log("[Sternblitz] Simulator nachgeladen.");
-        }, 1500);
-      }
-    });
-  `}
-</Script>
 
-      {/* 5) CSS 1:1 + Mobile-Fixes */}
+      {/* Diagnose (optional) */}
+      <Script id="sb-attach-fetch" strategy="afterInteractive">{`
+        window.addEventListener("DOMContentLoaded", function(){
+          if (typeof window.sbFetchData === "function"){
+            console.log("[Sternblitz] Simulator bereit");
+          } else {
+            console.warn("[Sternblitz] sbFetchData noch nicht da – prüfe in 1500ms nochmal");
+            setTimeout(function(){ if(typeof window.sbFetchData==="function") console.log("[Sternblitz] Simulator nachgeladen."); }, 1500);
+          }
+        });
+      `}</Script>
+
+      {/* CSS 1:1, mobile Fix: Input nicht breiter als Card */}
       <style jsx global>{`
         @keyframes shake{0%{transform:translateX(0)}5%{transform:translateX(-8px)}10%{transform:translateX(8px)}15%{transform:translateX(-8px)}20%{transform:translateX(8px)}25%{transform:translateX(0)}100%{transform:translateX(0)}}
         .shake{animation:shake 1.5s ease-in-out infinite;opacity:1!important}
@@ -410,7 +322,7 @@ export default function LiveSimulator() {
         .search-box{width:100%;max-width:100% !important;padding:9px 20px;border:1px solid rgba(1,1,1,0.1);border-radius:8px;font-family:Poppins;font-size:18px;line-height:150%;outline:none;box-sizing:border-box}
         .search-box:focus{border-color:#49a84c}
         .search-box::placeholder{color:#878686}
-        @keyframes breathe{0%{transform:scale(0.985);box-shadow:0 0 0 rgba(73,168,76,0)}50%{transform:scale(1);box-shadow:0 10px 28px rgba(73,168,76,0.18)}100%{transform:scale(0.985);box-shadow:0 0 0 rgba(73,168,76,0)}
+        @keyframes breathe{0%{transform:scale(0.985);box-shadow:0 0 0 rgba(73,168,76,0)}50%{transform:scale(1);box-shadow:0 10px 28px rgba(73,168,76,0.18)}100%{transform:scale(0.985);box-shadow:0 0 0 rgba(73,168,76,0)}}
         .search-box.attention{animation:breathe 2.2s ease-in-out infinite;transition:box-shadow .2s ease,transform .2s ease}
         .search-box:focus,.search-box.user-typing{animation:none!important;box-shadow:0 0 0 2px rgba(73,168,76,0.35)}
         @media (prefers-reduced-motion:reduce){.search-box.attention{animation:none}}
