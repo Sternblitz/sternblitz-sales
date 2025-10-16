@@ -1,42 +1,30 @@
 // app/api/sign/submit/route.js
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseServer";
+import { getResend } from "@/lib/resendClient";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
 export const runtime = "nodejs";
 
-// ---- Helpers -------------------------------------------------
+// --- utils ---
 function dataUrlToUint8(signaturePng) {
   const base64 = (signaturePng || "").split(",").pop() || "";
   const bin = Buffer.from(base64, "base64");
   return new Uint8Array(bin);
 }
-
-// Nur ASCII/WinAnsi-sichere Zeichen (Emojis entfernen)
-function sanitize(text = "") {
+function toWinAnsi(text = "") {
   return String(text).replace(
     /[\u{1F300}-\u{1FAFF}\u{1F000}-\u{1F9FF}\u{2600}-\u{27BF}]/gu,
     ""
   );
 }
-
-// Deine UI-Option → DB-Enum
-function mapRemovalOption(opt) {
-  if (opt === "123") return "remove_1_to_3";
-  if (opt === "12")  return "remove_1_to_2";
-  if (opt === "1")   return "remove_ones";
-  return "individual";
+function labelFor(opt) {
+  return opt === "123" ? "1–3 Sterne löschen"
+       : opt === "12"  ? "1–2 Sterne löschen"
+       : opt === "1"   ? "1 Stern löschen"
+       : "Individuelle Löschungen";
 }
-
-// Schöner Label-Text ohne Emojis
-function optionLabel(opt) {
-  if (opt === "123") return "1–3 Sterne löschen";
-  if (opt === "12")  return "1–2 Sterne löschen";
-  if (opt === "1")   return "1 Stern löschen";
-  return "Individuelle Löschungen";
-}
-
-function pickedCount(selectedOption, counts) {
+function chosenCount(selectedOption, counts) {
   if (!counts) return null;
   if (selectedOption === "123") return counts.c123 ?? null;
   if (selectedOption === "12")  return counts.c12  ?? null;
@@ -44,27 +32,26 @@ function pickedCount(selectedOption, counts) {
   return null;
 }
 
-// PDF Generator (A4, simpel & robust)
 async function buildPdf(p, sigBytes) {
   const pdf = await PDFDocument.create();
   const page = pdf.addPage([595, 842]);
   const { height } = page.getSize();
-
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const draw = (txt, opts) => page.drawText(sanitize(txt), opts);
+  const draw = (txt, opts) => page.drawText(toWinAnsi(txt), opts);
 
   let y = height - 70;
   draw("Auftragsbestätigung Sternblitz", { x: 50, y, font: bold, size: 20, color: rgb(0,0,0) });
 
   y -= 20;
-  draw("Hiermit bestätige ich den Auftrag zur Löschung meiner negativen Google-Bewertungen.", { x: 50, y, font, size: 11, color: rgb(0,0,0) });
+  draw("Hiermit bestätige ich den Auftrag zur Löschung meiner negativen Google-Bewertungen.",
+       { x: 50, y, font, size: 11, color: rgb(0,0,0) });
 
   y -= 25;
   for (const b of [
     "Fixpreis: 299 € (einmalig)",
     "Zahlung erst nach Löschung (von mind. 90 % der Bewertungen)",
-    "Dauerhafte Entfernung"
+    "Dauerhafte Entfernung",
   ]) {
     draw("• " + b, { x: 50, y, font, size: 11, color: rgb(0,0,0) });
     y -= 16;
@@ -76,24 +63,25 @@ async function buildPdf(p, sigBytes) {
 
   const lines = [
     ["Google-Profil", p.googleProfile],
-    ["Bewertungen", optionLabel(p.selectedOption)],
+    ["Bewertungen", labelFor(p.selectedOption)],
     ["Firma", p.company],
     ["Vorname", p.firstName],
     ["Nachname", p.lastName],
     ["E-Mail", p.email],
-    ["Telefon", p.phone]
+    ["Telefon", p.phone],
   ];
-
   for (const [k, v] of lines) {
     draw(`${k}:`, { x: 50, y, font: bold, size: 10, color: rgb(0,0,0) });
     draw(String(v ?? "—"), { x: 180, y, font, size: 10, color: rgb(0,0,0) });
     y -= 14;
   }
 
-  const picked = pickedCount(p.selectedOption, p.counts);
+  // gewählte Option + Zähler
+  const picked = chosenCount(p.selectedOption, p.counts);
   y -= 6;
   draw("Gewählte Löschung:", { x: 50, y, font: bold, size: 10, color: rgb(0,0,0) });
-  draw(`${optionLabel(p.selectedOption)}${picked != null ? ` — Entfernte: ${Number(picked).toLocaleString("de-DE")}` : ""}`, { x: 180, y, font, size: 10, color: rgb(0,0,0) });
+  draw(`${labelFor(p.selectedOption)}${picked != null ? ` — Entfernte: ${Number(picked).toLocaleString("de-DE")}` : ""}`,
+       { x: 180, y, font, size: 10, color: rgb(0,0,0) });
   y -= 14;
 
   if (p.counts) {
@@ -101,7 +89,8 @@ async function buildPdf(p, sigBytes) {
     const c12  = Number(p.counts.c12  ?? 0).toLocaleString("de-DE");
     const c1   = Number(p.counts.c1   ?? 0).toLocaleString("de-DE");
     draw("Zähler gesamt:", { x: 50, y, font: bold, size: 10, color: rgb(0,0,0) });
-    draw(`1–3: ${c123}   |   1–2: ${c12}   |   1: ${c1}`, { x: 180, y, font, size: 10, color: rgb(0,0,0) });
+    draw(`1–3: ${c123}   |   1–2: ${c12}   |   1: ${c1}`,
+         { x: 180, y, font, size: 10, color: rgb(0,0,0) });
     y -= 14;
   }
 
@@ -120,133 +109,127 @@ async function buildPdf(p, sigBytes) {
   return await pdf.save();
 }
 
-// ---- Route ---------------------------------------------------
+// --- API handler ---
 export async function POST(req) {
   try {
     const body = await req.json();
     const {
-      // Pflicht aus dem Step
       googleProfile,
-      googleUrl,
-      selectedOption,      // "123" | "12" | "1" | "custom"
-      counts,              // { c123, c12, c1 }
+      selectedOption,
       company,
       firstName,
       lastName,
       email,
       phone,
-      customNotes,
       signaturePng,
-      // Zuordnung (optional, wenn Sales eingeloggt)
-      salesRepId,          // uuid aus auth.users / profiles.id
-      teamId,              // optional – kann Trigger/Server später setzen
-      repCode,             // falls du ?rep=XYZ in der URL hast
-      // FYI (optional)
-      ipAddress,
-      deviceInfo
+      counts,        // { c123, c12, c1 }
+      rep_code,      // optional (zuordnung)
+      source_account_id, // optional
     } = body || {};
 
-    if (!googleProfile || !signaturePng) {
+    if (!googleProfile || !signaturePng || !email) {
       return NextResponse.json({ error: "Ungültige Daten" }, { status: 400 });
     }
 
-    // 1) Order anlegen (erst mal ohne URLs, damit wir IDs haben)
-    const sb = supabaseAdmin();
-   const { data: orderInsert, error: orderErr } = await sb
-  .from("orders")
-  .insert([{
-    business_name: company || null,
-    // Fallback: wenn keine echte URL, dann den sichtbaren Profil-String speichern
-    google_profile_url: (googleUrl && googleUrl.trim()) || sanitize(googleProfile) || "-",
-    contact_name: [firstName, lastName].filter(Boolean).join(" ") || null,
-    contact_email: email || null,
-    contact_phone: phone || null,
-
-    simulator_payload: counts ? { counts } : null,
-    selected_option: mapRemovalOption(selectedOption),
-    individual_notes: customNotes || null,
-
-    ip_address: ipAddress || null,
-    device_info: deviceInfo || null,
-
-    sales_rep_id: salesRepId || null,
-    team_id: teamId || null,
-
-    status: "in_progress",
-    payment_status: "uninitialized",
-
-    referral_code_used: repCode || null
-  }])
-  .select("id")
-  .single();
-
-    if (orderErr) {
-      console.error(orderErr);
-      return NextResponse.json({ error: orderErr.message }, { status: 500 });
-    }
-
-    const orderId = orderInsert.id;
-
-    // 2) Dateien erzeugen & hochladen
+    // 1) PDF bauen
     const sigBytes = dataUrlToUint8(signaturePng);
     const pdfBytes = await buildPdf(
       { googleProfile, selectedOption, company, firstName, lastName, email, phone, counts },
       sigBytes
     );
 
-    const pdfBuffer = Buffer.from(pdfBytes);
-    const { error: upPdfErr } = await sb.storage.from("contracts").upload(
-      `orders/${orderId}.pdf`,
-      pdfBuffer,
-      { contentType: "application/pdf", upsert: true }
-    );
-    if (upPdfErr) {
-      console.error(upPdfErr);
-      return NextResponse.json({ error: upPdfErr.message }, { status: 500 });
+    // 2) Hochladen
+    const sb = supabaseAdmin();
+    const safeBase = (firstName || "kunde").toString().trim().replace(/[^a-z0-9_-]+/gi, "_") || "kunde";
+    const fileName = `${Date.now()}_${safeBase}.pdf`;
+    const buffer = Buffer.from(pdfBytes);
+
+    const { error: uploadErr } = await sb
+      .storage
+      .from("contracts")
+      .upload(fileName, buffer, { contentType: "application/pdf", upsert: false });
+
+    if (uploadErr) {
+      console.error("Supabase upload error:", uploadErr);
+      return NextResponse.json({ error: uploadErr.message || "Upload fehlgeschlagen" }, { status: 500 });
+    }
+    const { data: pub } = sb.storage.from("contracts").getPublicUrl(fileName);
+    const pdfUrl = pub?.publicUrl;
+
+    // 3) Lead/Order-ähnlichen Datensatz sichern (leichtgewichtige leads-Tabelle)
+    const picked = chosenCount(selectedOption, counts);
+    try {
+      await sb.from("leads").insert([{
+        google_profile: googleProfile,
+        google_url: null,
+        selected_option: selectedOption,
+        counts: counts ?? null,
+        company,
+        first_name: firstName,
+        last_name: lastName,
+        email,
+        phone,
+        custom_notes: null,
+        pdf_path: fileName,
+        pdf_signed_url: pdfUrl,
+        rep_code: rep_code ?? null,
+        source_account_id: source_account_id ?? null,
+      }]);
+    } catch (e) {
+      console.warn("Leads insert warn:", e?.message || e);
     }
 
-    const { error: upSigErr } = await sb.storage.from("signatures").upload(
-      `orders/${orderId}.png`,
-      Buffer.from(sigBytes),
-      { contentType: "image/png", upsert: true }
-    );
-    if (upSigErr) {
-      console.error(upSigErr);
-      // nicht fatal – wir fahren fort, aber loggen
+    // 4) E-Mail mit Resend schicken (Kunde + optional BCC intern)
+    try {
+      const resend = getResend();
+      const from = process.env.RESEND_FROM;
+      const replyTo = process.env.RESEND_REPLY_TO || undefined;
+
+      const subject = "Deine Auftragsbestätigung – Sternblitz";
+      const prettyOption = labelFor(selectedOption);
+      const pickedText = picked != null ? ` (Entfernte: ${Number(picked).toLocaleString("de-DE")})` : "";
+
+      const html = `
+        <div style="font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a">
+          <h2>Danke für deine Unterschrift, ${firstName || ""}!</h2>
+          <p>Hier ist deine Auftragsbestätigung als PDF:</p>
+          <p><a href="${pdfUrl}" style="font-weight:700">PDF herunterladen</a></p>
+          <hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0" />
+          <p><strong>Zusammenfassung</strong></p>
+          <ul>
+            <li>Google-Profil: ${googleProfile}</li>
+            <li>Option: ${prettyOption}${pickedText}</li>
+            <li>Firma/Kontakt: ${company || "—"} / ${firstName || ""} ${lastName || ""}</li>
+            <li>E-Mail: ${email}</li>
+            <li>Telefon: ${phone || "—"}</li>
+          </ul>
+          <p>Bei Fragen einfach auf diese E-Mail antworten – wir sind für dich da.</p>
+          <p>— Dein Sternblitz Team</p>
+        </div>
+      `;
+      const text =
+        `Danke für deine Unterschrift!\n\n` +
+        `PDF: ${pdfUrl}\n\n` +
+        `Google-Profil: ${googleProfile}\n` +
+        `Option: ${prettyOption}${pickedText}\n` +
+        `Kontakt: ${company || "—"} / ${firstName || ""} ${lastName || ""}\n` +
+        `E-Mail: ${email}\nTelefon: ${phone || "—"}\n`;
+
+      await resend.emails.send({
+        from,
+        to: email,
+        subject,
+        html,
+        text,
+        reply_to: replyTo,
+        // bcc: "intern@sternblitz.de" // optional
+      });
+    } catch (e) {
+      console.warn("Resend warn:", e?.message || e);
+      // E-Mail-Fehler blockiert nicht den Abschluss
     }
 
-    // 3) (Optional) Public/Signed URL erstellen – hier Public-URL (falls Bucket public ist)
-    const { data: pdfPub } = sb.storage.from("contracts").getPublicUrl(`orders/${orderId}.pdf`);
-    const contract_pdf_url = pdfPub?.publicUrl || null;
-
-    // 4) Order aktualisieren (URLs + signed_at)
-    const { error: updErr } = await sb
-      .from("orders")
-      .update({
-        contract_pdf_url,
-        signature_url: upSigErr ? null : `signatures/orders/${orderId}.png`,
-        signed_at: new Date().toISOString()
-      })
-      .eq("id", orderId);
-
-    if (updErr) {
-      console.error(updErr);
-      // kein Hard-Stop
-    }
-
-    // 5) Event loggen
-    await sb.from("order_events").insert([{
-      order_id: orderId,
-      event_type: "created",
-      data: { selectedOption, counts, repCode, salesRepId }
-    }]);
-
-    return NextResponse.json({
-      ok: true,
-      orderId,
-      pdfUrl: contract_pdf_url
-    });
-
+    return NextResponse.json({ ok: true, pdfUrl });
   } catch (e) {
     console.error("sign/submit error:", e);
     return NextResponse.json({ error: e?.message || "Fehler" }, { status: 500 });
