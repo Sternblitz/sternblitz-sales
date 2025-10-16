@@ -90,6 +90,7 @@ export default function DashboardPage() {
       ac.addListener("place_changed", () => {
         const place = ac.getPlace();
         const name = place?.name || "";
+        theaddress:
         const address = place?.formatted_address || "";
         const url = place?.url || "";
         const fresh = [name, address].filter(Boolean).join(", ");
@@ -153,7 +154,7 @@ export default function DashboardPage() {
       {/* Live-Simulator */}
       <LiveSimulator />
 
-      {/* EIN Button (schwarz, mit 🚀) – bleibt wie gehabt */}
+      {/* EIN Button (schwarz, mit 🚀) – größer + zentriert */}
       {!formOpen && (
         <div className="cta">
           <button
@@ -346,8 +347,8 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Mehr Abstand + hellgrüner Confirm mit ✅ */}
-          <div className="actions roomy">
+          {/* Mehr Abstand + hellgrüner Confirm mit ✅, zentriert */}
+          <div className="actions roomy center">
             <button className="submit-btn confirm" type="submit">
               <span className="emoji" aria-hidden>✅</span>
               <span className="label">Auftrag bestätigen</span>
@@ -374,25 +375,25 @@ export default function DashboardPage() {
           padding: 0 12px 80px;
         }
 
-        /* EIN Button (schwarz) mit 🚀 – unverändert */
+        /* EIN Button (schwarz) mit 🚀 – größer + zentriert */
         .cta {
           display: flex;
           justify-content: center;
-          margin-top: 18px;
+          margin-top: 22px;
         }
         .primary-btn {
           appearance: none;
           border: 1px solid #0b0b0b;
           background: #0b0b0b;
           color: #fff;
-          padding: 14px 24px;
-          border-radius: 16px;
-          font-weight: 800;
+          padding: 18px 28px; /* größer */
+          border-radius: 18px;
+          font-weight: 900;
           letter-spacing: 0.2px;
-          box-shadow: 0 10px 26px rgba(0, 0, 0, 0.2);
+          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
           transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.2s ease;
           display: inline-flex;
-          gap: 10px;
+          gap: 12px;
           align-items: center;
           position: relative;
           overflow: hidden;
@@ -401,9 +402,9 @@ export default function DashboardPage() {
         .primary-btn:hover {
           transform: translateY(-1px);
           background: #111;
-          box-shadow: 0 14px 32px rgba(0, 0, 0, 0.28);
+          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
         }
-        .label { font-size: 16px; }
+        .primary-btn .label { font-size: 18px; }
         .rocket { display: inline-block; transition: transform .25s ease; }
         .primary-btn.blast .rocket { transform: translateY(-18px) translateX(6px) rotate(-12deg) scale(1.08); }
         @keyframes pulseBtn {
@@ -611,45 +612,61 @@ export default function DashboardPage() {
         .row { display: flex; gap: 12px; }
         .half { flex: 1; }
 
-        /* Extra Luft nach der Telefon-Reihe */
-        .group:last-of-type .row:last-of-type { margin-bottom: 12px; }
-
-        /* Aktionen – mehr Abstand nach oben, Button hellgrün + ✅ */
+        /* Aktionen – mehr Abstand nach oben, Button hellgrün + ✅, zentriert */
         .actions {
           display: flex;
           justify-content: flex-end;
           margin-top: 6px;
         }
-        .actions.roomy { margin-top: 22px; } /* << mehr Abstand zu E-Mail/Telefon */
+        .actions.roomy { margin-top: 26px; } /* mehr Abstand zu E-Mail/Telefon */
+        .actions.center { justify-content: center; }
 
         .submit-btn.confirm {
           display: inline-flex;
           align-items: center;
           gap: 10px;
-          padding: 14px 22px;
+          padding: 16px 26px;
           border-radius: 999px;
           border: 1px solid #16a34a;
-          background: linear-gradient(135deg, #34d399 0%, #22c55e 100%); /* HELLER grün */
-          color: #0b2b16;
-          font-weight: 800;
+          background: linear-gradient(135deg, #41e39f 0%, #22c55e 60%, #16a34a 100%);
+          color: #ffffff; /* weißer Text */
+          font-weight: 900;
           letter-spacing: .2px;
-          box-shadow: 0 12px 28px rgba(34, 197, 94, .35);
+          box-shadow: 0 14px 36px rgba(34, 197, 94, .40), inset 0 1px 0 rgba(255,255,255,.18);
           transition: transform .12s ease, box-shadow .18s ease, filter .18s ease, background .18s ease;
+          position: relative;
+          overflow: hidden;
         }
-        .submit-btn.confirm .label { font-size: 16px; }
+        .submit-btn.confirm .label { font-size: 17px; }
+
+        /* subtiler Shine-Effekt */
+        .submit-btn.confirm::after {
+          content: "";
+          position: absolute;
+          top: -120%;
+          left: -30%;
+          width: 60%;
+          height: 300%;
+          transform: rotate(25deg);
+          background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.22) 45%, rgba(255,255,255,0) 100%);
+          transition: transform .6s ease;
+        }
+        .submit-btn.confirm:hover::after {
+          transform: translateX(220%) rotate(25deg);
+        }
         .submit-btn.confirm:hover {
           transform: translateY(-1px);
-          filter: brightness(1.03);
-          box-shadow: 0 16px 36px rgba(34, 197, 94, .45);
+          filter: brightness(1.04);
+          box-shadow: 0 18px 44px rgba(34, 197, 94, .50);
         }
         .submit-btn.confirm:active {
           transform: translateY(0);
           filter: brightness(.98);
-          box-shadow: 0 8px 18px rgba(34, 197, 94, .35);
+          box-shadow: 0 10px 24px rgba(34, 197, 94, .40);
         }
         .submit-btn.confirm:focus-visible {
           outline: none;
-          box-shadow: 0 0 0 3px rgba(34, 197, 94, .25), 0 12px 28px rgba(34, 197, 94, .35);
+          box-shadow: 0 0 0 3px rgba(34, 197, 94, .3), 0 14px 36px rgba(34, 197, 94, .4);
         }
 
         /* Fliegender grüner Haken */
@@ -679,7 +696,8 @@ export default function DashboardPage() {
           .checks { grid-template-columns: 1fr; }
           .row { flex-direction: column; }
           .actions { justify-content: stretch; }
-          .actions.roomy { margin-top: 20px; }
+          .actions.center { justify-content: center; }
+          .actions.roomy { margin-top: 22px; }
           .submit-btn.confirm { width: 100%; justify-content: center; }
           .check-fly {
             bottom: 100px;
