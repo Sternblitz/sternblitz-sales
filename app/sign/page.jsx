@@ -199,14 +199,12 @@ export default function SignPage() {
     setEditOptionOpen(false);
   };
 
-  // ersetzt deine aktuelle submit-Funktion
 const submit = async () => {
   if (!agree) {
     alert("Bitte AGB & Datenschutz bestätigen.");
     return;
   }
 
-  // Signatur leer?
   const c = canvasRef.current;
   const blank = document.createElement("canvas");
   blank.width = c.width; blank.height = c.height;
@@ -218,10 +216,8 @@ const submit = async () => {
   try {
     setSaving(true);
 
-    // PNG holen
     const signaturePng = c.toDataURL("image/png");
 
-    // Payload aus den vorhandenen Summary-Daten
     const payload = {
       googleProfile: summary.googleProfile,
       selectedOption: summary.selectedOption,
@@ -243,9 +239,19 @@ const submit = async () => {
     if (!res.ok) {
       console.error("Submit error:", json);
       alert("Fehler beim Speichern: " + (json?.error || res.statusText));
-      setSaving(false);
       return;
     }
+
+    // Erfolg: PDF-URL öffnen + kurze Bestätigung
+    if (json?.pdfUrl) window.open(json.pdfUrl, "_blank", "noopener,noreferrer");
+    alert("Unterschrift & Vertrag gespeichert! ✅");
+  } catch (e) {
+    console.error(e);
+    alert("Unerwarteter Fehler: " + (e?.message || String(e)));
+  } finally {
+    setSaving(false);
+  }
+};
 
     // Erfolg: PDF-URL zeigen (oder weiterleiten / Mail später)
     if (json?.pdfUrl) {
