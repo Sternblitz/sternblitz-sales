@@ -27,7 +27,7 @@ export default function SignPage() {
     return null;
   };
 
-  // Canvas vorbereiten (mit Device Pixel Ratio)
+  // Canvas vorbereiten
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -97,7 +97,7 @@ export default function SignPage() {
       alert("Bitte AGB & Datenschutz bestätigen.");
       return;
     }
-    // einfache "leer?"-Prüfung
+    // einfache Leer-Prüfung
     const c = canvasRef.current;
     const blank = document.createElement("canvas");
     blank.width = c.width; blank.height = c.height;
@@ -123,25 +123,36 @@ export default function SignPage() {
   return (
     <main className="sign-shell">
       <div className="card">
-        {/* Header */}
-        <header className="header">
+
+        {/* HERO-PANEL: Logo + Titel + Bullets in EINER weißen Box */}
+        <section className="hero">
           <img
             src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/68ad4679902a5d278c4cf0bc_Group%202085662922-p-500.png"
             alt="Sternblitz"
             className="logo"
           />
-          <h1>Auftragsbestätigung <span className="brand">Sternblitz</span></h1>
-          <p className="lead">
-            Hiermit bestätige ich den Auftrag zur Löschung meiner negativen Google-Bewertungen.
-          </p>
-        </header>
+          <div className="hero-box">
+            <h1>Auftragsbestätigung <span className="brand">Sternblitz</span></h1>
+            <p className="lead">
+              Hiermit bestätige ich den Auftrag zur Löschung meiner negativen Google-Bewertungen.
+            </p>
 
-        {/* Highlights */}
-        <ul className="highlights" role="list">
-          <li><span className="chip"><CheckIcon /> <strong>Fixpreis: 290 €</strong> (einmalig)</span></li>
-          <li><span className="chip"><CheckIcon /> Zahlung erst nach Löschung (von mind. 90 % der Bewertungen)</span></li>
-          <li><span className="chip"><CheckIcon /> Dauerhafte Entfernung</span></li>
-        </ul>
+            <ul className="bullets" role="list">
+              <li>
+                <ColorDot color="blue" />
+                <span><strong>Fixpreis: 290 €</strong> (einmalig)</span>
+              </li>
+              <li>
+                <ColorDot color="red" />
+                <span>Zahlung erst nach Löschung (von mind. 90 % der Bewertungen)</span>
+              </li>
+              <li>
+                <ColorDot color="green" />
+                <span>Dauerhafte Entfernung</span>
+              </li>
+            </ul>
+          </div>
+        </section>
 
         {/* Zusammenfassung */}
         <section className="summary" aria-labelledby="sumhead">
@@ -207,32 +218,36 @@ export default function SignPage() {
 
       <style jsx>{`
         :root{
-          /* intensiveres, aber sanftes Grün (#d8e7db) + Licht */
+          /* Google Palette */
+          --g-blue:#4285F4;
+          --g-red:#EA4335;
+          --g-yellow:#FBBC05;
+          --g-green:#34A853;
+
+          /* sanfter Grundton (dein Grün) + Akzente */
           --g-soft:#d8e7db;
-          --g-2:#bcd3c2;
-          --g-3:#a9c4b1;
-          --blue-soft:#e8eefc;
+          --bg-1:#f3f7ff;
+          --bg-2:#fff1f7;
 
           --card:#ffffff;
           --ink:#0b0f19;
           --muted:#5b6472;
           --line:#e6ebe8;
-          --brand:#0b0b0b;
 
           --shadow-lg: 0 30px 70px rgba(10,20,10,.10);
-          --shadow-soft: 0 8px 22px rgba(88,126,106,.18);
+          --shadow-soft: 0 10px 28px rgba(88,126,106,.18);
         }
 
-        /* Hintergrund mit kräftigerem Farbverlauf */
+        /* Mehrfarbiger Seitenhintergrund (kräftiger, aber clean) */
         .sign-shell{
           min-height:100dvh;
           background:
             radial-gradient(1200px 800px at 50% -10%, rgba(216,231,219,.95) 0%, transparent 65%),
-            radial-gradient(1100px 700px at 120% -10%, rgba(255,164,231,.35) 0%, transparent 70%),
-            radial-gradient(1300px 900px at -20% 120%, rgba(152,195,171,.32) 0%, transparent 70%),
-            linear-gradient(180deg, #eff6f1 0%, #f7faf8 50%, #ffffff 100%);
+            radial-gradient(1100px 700px at 120% -10%, rgba(255,164,231,.40) 0%, transparent 70%),
+            radial-gradient(1300px 900px at -20% 120%, rgba(152,195,171,.36) 0%, transparent 70%),
+            linear-gradient(180deg, #eef3ff 0%, #ffffff 50%, #fff 100%);
           display:flex;align-items:flex-start;justify-content:center;
-          padding:54px 14px 80px;
+          padding:56px 14px 80px;
         }
 
         .card{
@@ -240,30 +255,33 @@ export default function SignPage() {
           border-radius:22px;box-shadow:var(--shadow-lg);overflow:hidden;
         }
 
-        .header{
-          text-align:center;padding:34px 26px 12px;
-          background:
-            radial-gradient(900px 300px at 50% -10%, rgba(216,231,219,.95) 0%, transparent 60%),
-            linear-gradient(180deg, #ffffff 0%, #f6fbff 60%, #ffffff 100%);
-        }
-        .logo{height:60px;width:auto;margin-bottom:16px;object-fit:contain;}
-        h1{margin:0;font-size:28px;letter-spacing:.2px;color:#111;font-weight:900}
-        .brand{color:#111}
-        .lead{margin:10px auto 0;max-width:700px;color:var(--muted);font-weight:500}
-
-        .highlights{
-          display:flex;gap:12px;flex-wrap:wrap;justify-content:center;
-          margin:18px auto 6px;padding:0 20px 0;list-style:none;
-        }
-        .chip{
-          display:inline-flex;align-items:center;gap:10px;
-          background:linear-gradient(180deg, #ffffff 0%, #f6fbff 100%);
+        /* HERO-PANEL */
+        .hero{padding:28px 22px 10px;text-align:center}
+        .logo{height:60px;width:auto;margin:0 auto 14px;object-fit:contain}
+        .hero-box{
+          margin:0 auto;max-width:820px;
+          background:linear-gradient(180deg, #ffffff 0%, #ffffff 48%, #fbfffc 100%);
           border:1px solid var(--line);
-          border-radius:999px;padding:10px 14px;
-          color:#111;font-weight:700;
+          border-radius:18px;
           box-shadow: var(--shadow-soft), inset 0 1px 0 rgba(255,255,255,.8);
+          padding:18px 18px 6px;
+        }
+        h1{margin:2px 0 6px;font-size:28px;color:#111;font-weight:900;letter-spacing:.2px}
+        .brand{color:#111}
+        .lead{margin:0 auto 10px;max-width:700px;color:var(--muted);font-weight:500}
+
+        .bullets{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+        .bullets li{
+          width:100%;
+          display:flex;align-items:center;gap:10px;
+          background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+          border:1px solid var(--line);
+          border-radius:12px;
+          padding:10px 12px;
+          color:#111;font-weight:700;
         }
 
+        /* Zusammenfassung */
         .summary{padding:18px 22px 10px}
         .row{display:grid;grid-template-columns:3fr 2fr;gap:14px}
         .item{
@@ -272,12 +290,13 @@ export default function SignPage() {
           border-radius:14px;padding:14px 16px;
           box-shadow:0 8px 22px rgba(88,126,106,.08);
         }
-        .itemL{border-top:4px solid rgba(216,231,219,1)}
-        .itemR{border-top:4px solid rgba(11,108,242,.25)}
+        .itemL{border-top:4px solid var(--g-soft)}
+        .itemR{border-top:4px solid rgba(66,133,244,.35)}
         .label{font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.06em}
         .value{margin-top:6px;color:var(--ink);font-weight:800;word-break:break-word}
         .count{margin-left:10px;color:#0b6cf2;font-weight:900}
 
+        /* Signatur */
         .signature{padding:16px 22px 28px}
         .sig-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
         .sig-title{font-size:16px;font-weight:900;color:var(--ink)}
@@ -301,7 +320,7 @@ export default function SignPage() {
         .agree{display:flex;gap:10px;align-items:flex-start;margin:14px 0 0;color:var(--ink)}
         .agree a{color:#0b6cf2;text-decoration:underline;text-underline-offset:3px}
 
-        /* Confirm: grüner Verlauf (Richtung #d8e7db), Text SCHWARZ */
+        /* Confirm: grüner Verlauf, Text SCHWARZ */
         .actions{display:flex;justify-content:center;margin-top:22px}
         .confirm{
           position:relative;overflow:hidden;
@@ -333,22 +352,40 @@ export default function SignPage() {
         .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
         @media (max-width:820px){
-          .header{padding:26px 16px 10px}
+          .hero{padding:24px 14px 8px}
           .logo{height:56px}
+          .hero-box{padding:16px 14px 8px}
           .row{grid-template-columns:1fr}
           .summary,.signature{padding:14px 14px 22px}
           .canvas{max-width:100%}
+          .bullets li{padding:10px 10px}
         }
       `}</style>
     </main>
   );
 }
 
-function CheckIcon() {
+/* Farbpunkte in Google-Farben */
+function ColorDot({ color }) {
+  const map = {
+    blue: "var(--g-blue)",
+    red: "var(--g-red)",
+    yellow: "var(--g-yellow)",
+    green: "var(--g-green)",
+  };
+  const c = map[color] || "var(--g-green)";
   return (
-    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <circle cx="10" cy="10" r="9.25" fill="#d8e7db" stroke="#a8c3af" strokeWidth="1.5"/>
-      <path d="M6 10.3l2.4 2.4L14.4 6.8" stroke="#0b0f19" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
+    <span
+      aria-hidden="true"
+      style={{
+        width: 22,
+        height: 22,
+        borderRadius: 999,
+        background: c,
+        boxShadow: "0 0 0 3px rgba(255,255,255,.9), 0 6px 14px rgba(0,0,0,.12)",
+        display: "inline-block",
+        flex: "0 0 auto",
+      }}
+    />
   );
 }
