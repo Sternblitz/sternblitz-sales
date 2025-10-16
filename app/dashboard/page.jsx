@@ -417,15 +417,34 @@ export default function DashboardPage() {
           --blue:#0b6cf2;
         }
 
-        /* Seiten-Hintergrund */
-        .shell{
-          min-height:100dvh;
-          background:
-            radial-gradient(1200px 600px at 12% 0%, rgba(216,231,219,.95) 0%, rgba(216,231,219,.12) 60%),
-            radial-gradient(1400px 700px at 100% 0%, rgba(52,140,255,.42) 0%, rgba(52,140,255,0) 65%),
-            linear-gradient(180deg, #f3f9ff 0%, #ffffff 60%, #ffffff 100%);
-          padding:0 14px 80px;
-        }
+       /* Seiten-Gradient hinter alles legen (überlappt den Simulator nicht) */
+.shell{
+  min-height:100dvh;
+  padding:0 14px 80px;
+
+  position: relative;     /* für ::before */
+  isolation: isolate;     /* eigener Stacking-Context */
+  background: transparent;/* kein echter BG hier */
+}
+
+/* eigentlicher Seitenverlauf – liegt darunter */
+.shell::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:0;              /* unter Content */
+  pointer-events:none;
+  background:
+    radial-gradient(1200px 600px at 12% 0%, rgba(216,231,219,.95) 0%, rgba(216,231,219,.12) 60%),
+    radial-gradient(1400px 700px at 100% 0%, rgba(52,140,255,.42) 0%, rgba(52,140,255,0) 65%),
+    linear-gradient(180deg, #f3f9ff 0%, #ffffff 60%, #ffffff 100%);
+}
+
+/* alle direkten Kinder über den Verlauf legen */
+.shell > *{
+  position: relative;
+  z-index: 1;
+}
 
         .sb-wrap{max-width:1208px;margin:0 auto;}
 
