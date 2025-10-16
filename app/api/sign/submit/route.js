@@ -90,7 +90,10 @@ export async function POST(req) {
       phone,
       signaturePng,
     } = body || {};
-
+    
+// Dateiname sicher machen (nur Buchstaben/Ziffern/Unterstrich/Minus)
+const safe = (firstName || "kunde").toString().trim().replace(/[^a-z0-9_-]+/gi, "_");
+    
     if (!googleProfile || !signaturePng) {
       return NextResponse.json({ error: "Ungültige Daten" }, { status: 400 });
     }
