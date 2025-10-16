@@ -198,26 +198,60 @@ export default function SignPage() {
     } catch {}
     setEditOptionOpen(false);
   };
+const submit = async () => {
+  if (!agree) {
+    alert("Bitte AGB & Datenschutz bestätigen.");
+    return;
+  }
 
-  const submit = async () => {
-    if (!agree) {
-      alert("Bitte AGB & Datenschutz bestätigen.");
-      return;
-    }
-    const c = canvasRef.current;
-    const blank = document.createElement("canvas");
-    blank.width = c.width;
-    blank.height = c.height;
-    if (c.toDataURL() === blank.toDataURL()) {
-      alert("Bitte unterschreiben.");
-      return;
-    }
+  const c = canvasRef.current;
+  const blank = document.createElement("canvas");
+  blank.width = c.width; blank.height = c.height;
+  if (c.toDataURL() === blank.toDataURL()) {
+    alert("Bitte unterschreiben.");
+    return;
+  }
+
+  try {
     setSaving(true);
+
     const signaturePng = c.toDataURL("image/png");
-    console.log("Signature(base64)…", signaturePng.slice(0, 48) + "…");
-    alert("Unterschrift erfasst! (PDF & Versand folgen im nächsten Schritt)");
+
+    // Payload aus den schon vorhandenen Daten
+    const payload = {
+      googleProfile: summary.googleProfile,
+      selectedOption: summary.selectedOption,
+      company: summary.company,
+      firstName: summary.firstName,
+      lastName: summary.lastName,
+      email: summary.email,
+      phone: summary.phone,
+      signaturePng,
+    };
+
+    const res = await fetch("/api/sign/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      console.error("Submit error:", json);
+      alert("Fehler beim Speichern: " + (json?.error || res.statusText));
+      return;
+    }
+
+    // Erfolg: PDF-Link öffnen (oder z. B. kopieren, wie du willst)
+    if (json?.pdfUrl) window.open(json.pdfUrl, "_blank", "noopener,noreferrer");
+    alert("Unterschrift & Vertrag gespeichert! ✅");
+  } catch (e) {
+    console.error(e);
+    alert("Unerwarteter Fehler: " + (e?.message || String(e)));
+  } finally {
     setSaving(false);
-  };
+  }
+};
 
   // Anzeige
   const chosenLabel = optionLabel(summary.selectedOption);
