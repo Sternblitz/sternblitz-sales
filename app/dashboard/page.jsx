@@ -159,12 +159,25 @@ export default function DashboardPage() {
     try {
       sessionStorage.setItem("sb_checkout_payload", JSON.stringify(payload));
     } catch {}
-    // Weiter zur Signatur-Seite (Prefill passiert dort aus sessionStorage)
     router.push("/sign");
   };
 
   return (
     <main className="shell">
+      {/* Fixed Header mit Logo */}
+      <header className="sb-header" role="banner" aria-label="Sternblitz">
+        <div className="sb-header-inner">
+          <img
+            className="sb-logo"
+            src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/68ad4679902a5d278c4cf0bc_Group%202085662922-p-500.png"
+            alt="Sternblitz"
+          />
+        </div>
+      </header>
+
+      {/* Platzhalter unter dem fixen Header */}
+      <div className="sb-header-spacer" />
+
       {/* Live-Simulator */}
       <LiveSimulator />
 
@@ -176,14 +189,12 @@ export default function DashboardPage() {
             onClick={openFormWithBlast}
           >
             <span className="label">Jetzt loslegen</span>
-            <span className="rocket" aria-hidden>
-              🚀
-            </span>
+            <span className="rocket" aria-hidden>🚀</span>
           </button>
         </div>
       )}
 
-      {/* Formular-Card auf dem neuen Hintergrund */}
+      {/* Formular-Card */}
       <section
         ref={formRef}
         className={`drawer ${formOpen ? "open" : ""}`}
@@ -192,8 +203,7 @@ export default function DashboardPage() {
         <header className="drawer-head">
           <h2 className="title">Es kann gleich losgehen ✨</h2>
           <p className="sub">
-            Bitte alle Felder ausfüllen. Mit <span className="req">*</span>{" "}
-            markiert = Pflicht.
+            Bitte alle Felder ausfüllen. Mit <span className="req">*</span> markiert = Pflicht.
           </p>
         </header>
 
@@ -234,23 +244,17 @@ export default function DashboardPage() {
               </div>
 
               {googleUrl ? (
-                <a
-                  className="profile-link"
-                  href={googleUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
+                <a className="profile-link" href={googleUrl} target="_blank" rel="noreferrer">
                   Profil öffnen ↗
                 </a>
               ) : null}
             </div>
           </div>
 
-          {/* Welche Bewertungen sollen gelöscht werden? (+ Live Counts) */}
+          {/* Welche Bewertungen sollen gelöscht werden? */}
           <div className="group">
             <div className="group-title">
-              Welche Bewertungen sollen gelöscht werden?{" "}
-              <span className="req">*</span>
+              Welche Bewertungen sollen gelöscht werden? <span className="req">*</span>
             </div>
 
             <div className="checks">
@@ -263,8 +267,7 @@ export default function DashboardPage() {
                   onChange={() => onOptionChange("123")}
                 />
                 <span className="mark" />
-                1–3 ⭐ löschen{" "}
-                <span className="hint">→ {fmtCount(counts.c123)} Bewertungen</span>
+                1–3 ⭐ löschen <span className="hint">→ {fmtCount(counts.c123)} Bewertungen</span>
               </label>
 
               <label className={`choice ${option === "12" ? "on" : ""}`}>
@@ -276,8 +279,7 @@ export default function DashboardPage() {
                   onChange={() => onOptionChange("12")}
                 />
                 <span className="mark" />
-                1–2 ⭐ löschen{" "}
-                <span className="hint">→ {fmtCount(counts.c12)} Bewertungen</span>
+                1–2 ⭐ löschen <span className="hint">→ {fmtCount(counts.c12)} Bewertungen</span>
               </label>
 
               <label className={`choice ${option === "1" ? "on" : ""}`}>
@@ -289,8 +291,7 @@ export default function DashboardPage() {
                   onChange={() => onOptionChange("1")}
                 />
                 <span className="mark" />
-                1 ⭐ löschen{" "}
-                <span className="hint">→ {fmtCount(counts.c1)} Bewertungen</span>
+                1 ⭐ löschen <span className="hint">→ {fmtCount(counts.c1)} Bewertungen</span>
               </label>
 
               <label className={`choice ${option === "custom" ? "on" : ""}`}>
@@ -308,9 +309,7 @@ export default function DashboardPage() {
 
             {option === "custom" && (
               <div className="field">
-                <label>
-                  Individuelle Wünsche <span className="req">*</span>
-                </label>
+                <label>Individuelle Wünsche <span className="req">*</span></label>
                 <textarea
                   rows={4}
                   placeholder="Beschreibe kurz, was individuell gelöscht werden soll…"
@@ -327,9 +326,7 @@ export default function DashboardPage() {
             <div className="group-title">Kontaktdaten</div>
 
             <div className="field">
-              <label>
-                Firmenname <span className="req">*</span>
-              </label>
+              <label>Firmenname <span className="req">*</span></label>
               <input
                 type="text"
                 placeholder="z. B. Smashburger GmbH"
@@ -341,9 +338,7 @@ export default function DashboardPage() {
 
             <div className="row">
               <div className="field half">
-                <label>
-                  Vorname <span className="req">*</span>
-                </label>
+                <label>Vorname <span className="req">*</span></label>
                 <input
                   type="text"
                   placeholder="Max"
@@ -353,9 +348,7 @@ export default function DashboardPage() {
                 />
               </div>
               <div className="field half">
-                <label>
-                  Nachname <span className="req">*</span>
-                </label>
+                <label>Nachname <span className="req">*</span></label>
                 <input
                   type="text"
                   placeholder="Mustermann"
@@ -368,9 +361,7 @@ export default function DashboardPage() {
 
             <div className="row">
               <div className="field half">
-                <label>
-                  E-Mail <span className="req">*</span>
-                </label>
+                <label>E-Mail <span className="req">*</span></label>
                 <input
                   type="email"
                   placeholder="max@firma.de"
@@ -380,9 +371,7 @@ export default function DashboardPage() {
                 />
               </div>
               <div className="field half">
-                <label>
-                  Telefon <span className="req">*</span>
-                </label>
+                <label>Telefon <span className="req">*</span></label>
                 <input
                   type="tel"
                   placeholder="+49 160 1234567"
@@ -397,7 +386,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Weiter-Button (zentriert, Pfeil) */}
+          {/* Weiter-Button */}
           <div className="actions center roomy">
             <button className="submit-btn next" type="submit">
               <span className="label">Weiter</span> <span aria-hidden>➡️</span>
@@ -406,7 +395,7 @@ export default function DashboardPage() {
         </form>
       </section>
 
-      {/* Styles – Hintergrund wie auf der /sign Seite + dezente Card */}
+      {/* Styles */}
       <style jsx global>{`
         :root{
           --ink:#0f172a;
@@ -416,49 +405,63 @@ export default function DashboardPage() {
           --shadow-soft:0 16px 36px rgba(2,6,23,.08);
           --blue:#0b6cf2;
         }
-/* 1) Keep the page gradient truly behind everything */
-.shell{
-  min-height:100dvh;
-  padding:0 14px 80px;
-  position: relative;
-  z-index: 0;            /* allows ::before to sit at -1 */
-  background: transparent;
-}
-.shell::before{
-  content:"";
-  position: fixed;       /* cover the full viewport */
-  inset:0;
-  z-index:-1;            /* real back layer */
-  pointer-events:none;
-  background:
-    radial-gradient(1200px 600px at 12% 0%, rgba(216,231,219,.95) 0%, rgba(216,231,219,.12) 60%),
-    radial-gradient(1400px 700px at 100% 0%, rgba(52,140,255,.42) 0%, rgba(52,140,255,0) 65%),
-    linear-gradient(180deg, #f3f9ff 0%, #ffffff 60%, #ffffff 100%);
-}
 
-/* 2) Make the Live-Simulator render on an opaque base (no tinting) */
-/* These class names exist in your LiveSimulator code */
-.review-container{
-  position: relative;
-  border-radius: 16px;                 /* keep your rounded box */
-  background-color: #fff;              /* <- opaque base under its gradient */
-  /* keep the simulator’s own gradient background as-is in its own CSS */
-}
+        /* ————— 1) KRÄFTIGER, SAUBERER HINTERGRUND-GRADIENT ————— */
+        .shell{
+          min-height:100dvh;
+          padding:0 14px 80px;
+          position: relative;
+          z-index: 0;
+          background: transparent;
+        }
+        .shell::before{
+          content:"";
+          position: fixed;
+          inset:0;
+          z-index:-1;
+          pointer-events:none;
+          /* Intensiver, aber clean: Grün (d8e7db) + kräftigeres Blau, mit Depth */
+          background:
+            radial-gradient(1100px 560px at 12% -10%, rgba(216,231,219,0.95) 0%, rgba(216,231,219,0.25) 55%, rgba(216,231,219,0) 70%),
+            radial-gradient(1200px 620px at 100% -10%, rgba(55,130,255,0.45) 0%, rgba(55,130,255,0.12) 60%, rgba(55,130,255,0) 75%),
+            linear-gradient(180deg, #f1f7ff 0%, #ffffff 45%, #ffffff 100%);
+        }
 
-/* If the gradient of the simulator sits on a child element instead,
-   ensure that child does NOT override the white base to transparent. */
-.review-card{
-  background-color: transparent;       /* its gradient can stay translucent */
-}
+        /* ————— 2) FIXER HEADER MIT LOGO ————— */
+        .sb-header{
+          position: sticky; /* sticky wirkt angenehm beim Scrollen */
+          top: 0;
+          z-index: 10;
+          backdrop-filter: saturate(1.1) blur(6px);
+        }
+        .sb-header-inner{
+          max-width:1208px;
+          margin:0 auto;
+          padding:14px 8px 10px;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+        }
+        .sb-logo{
+          height:54px;
+          width:auto;
+          object-fit:contain;
+          filter: drop-shadow(0 4px 10px rgba(0,0,0,.10));
+        }
+        /* Spacer, damit der Simulator nicht am Header klebt */
+        .sb-header-spacer{ height: 10px; }
 
-/* Optional: add a subtle shadow to separate the simulator panel from the page gradient */
-.review-container{
-  box-shadow: 0 24px 60px rgba(2,6,23,.10);
-}
+        /* ————— 3) SIMULATOR: bleibt unverändert, liegt auf weißer Card ————— */
+        .review-container{
+          position: relative;
+          border-radius: 16px;
+          background-color: #fff;      /* weißer Kasten hinter dem Suchfeld */
+          box-shadow: 0 24px 60px rgba(2,6,23,.10);
+        }
 
         .sb-wrap{max-width:1208px;margin:0 auto;}
 
-        /* EIN Button (schwarz) mit 🚀 – etwas größer */
+        /* CTA */
         .cta{display:flex;justify-content:center;margin-top:18px}
         .primary-btn{
           appearance:none;border:1px solid #0b0b0b;background:#0b0b0b;color:#fff;
@@ -473,7 +476,7 @@ export default function DashboardPage() {
         .primary-btn.blast .rocket{transform:translateY(-18px) translateX(6px) rotate(-12deg) scale(1.08)}
         @keyframes pulseBtn{0%{transform:scale(.995)}50%{transform:scale(1)}100%{transform:scale(.995)}}
 
-        /* Drawer-Card (dezenter) */
+        /* Drawer-Card */
         .drawer{
           max-width:920px;
           margin:20px auto 0;
@@ -559,6 +562,7 @@ export default function DashboardPage() {
           .actions{justify-content:stretch}
           .actions.center{justify-content:center}
           .submit-btn.next{width:100%;justify-content:center}
+          .sb-header-spacer{ height: 8px; }
         }
       `}</style>
     </main>
