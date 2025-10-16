@@ -203,21 +203,19 @@ const submit = async () => {
     alert("Bitte AGB & Datenschutz bestätigen.");
     return;
   }
-
   const c = canvasRef.current;
   const blank = document.createElement("canvas");
-  blank.width = c.width; blank.height = c.height;
+  blank.width = c.width;
+  blank.height = c.height;
   if (c.toDataURL() === blank.toDataURL()) {
     alert("Bitte unterschreiben.");
     return;
   }
 
+  setSaving(true);
   try {
-    setSaving(true);
-
     const signaturePng = c.toDataURL("image/png");
 
-    // Payload aus den schon vorhandenen Daten
     const payload = {
       googleProfile: summary.googleProfile,
       selectedOption: summary.selectedOption,
@@ -235,24 +233,29 @@ const submit = async () => {
       body: JSON.stringify(payload),
     });
 
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      console.error("Submit error:", json);
-      alert("Fehler beim Speichern: " + (json?.error || res.statusText));
+    const out = await res.json().catch(() => ({}));
+
+    // <- harte Prüfung: nur Fehler, wenn res.ok false ODER out.error vorhanden
+    if (!res.ok || out?.error) {
+      console.error("submit error:", { status: res.status, out });
+      alert(`Fehler beim Speichern: ${out?.error || `HTTP ${res.status}`}`);
+      setSaving(false);
       return;
     }
 
-    // Erfolg: PDF-Link öffnen (oder z. B. kopieren, wie du willst)
-    if (json?.pdfUrl) window.open(json.pdfUrl, "_blank", "noopener,noreferrer");
-    alert("Unterschrift & Vertrag gespeichert! ✅");
+    // Erfolg
+    console.log("PDF gespeichert:", out);
+    alert("PDF gespeichert! ✅");
+    // Optional: out.pdfUrl anzeigen/nutzen
+    // window.open(out.pdfUrl, "_blank");
+
   } catch (e) {
     console.error(e);
-    alert("Unerwarteter Fehler: " + (e?.message || String(e)));
+    alert(`Fehler beim Speichern: ${e?.message || String(e)}`);
   } finally {
     setSaving(false);
   }
 };
-
   // Anzeige
   const chosenLabel = optionLabel(summary.selectedOption);
   const chosenCount = optionCount(summary.selectedOption, summary.counts);
