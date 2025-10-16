@@ -198,6 +198,7 @@ export default function SignPage() {
     } catch {}
     setEditOptionOpen(false);
   };
+// in app/sign/page.jsx
 const submit = async () => {
   if (!agree) {
     alert("Bitte AGB & Datenschutz bestätigen.");
@@ -205,44 +206,45 @@ const submit = async () => {
   }
   const c = canvasRef.current;
   const blank = document.createElement("canvas");
-  blank.width = c.width;
-  blank.height = c.height;
+  blank.width = c.width; blank.height = c.height;
   if (c.toDataURL() === blank.toDataURL()) {
     alert("Bitte unterschreiben.");
     return;
   }
-
   setSaving(true);
   try {
     const signaturePng = c.toDataURL("image/png");
 
-    const payload = {
-      googleProfile: summary.googleProfile,
-      selectedOption: summary.selectedOption,
-      company: summary.company,
-      firstName: summary.firstName,
-      lastName: summary.lastName,
-      email: summary.email,
-      phone: summary.phone,
-      counts: summary.counts,
-      signaturePng,
-    };
-
+    // payload aus deiner Summary + counts aus summary.counts
     const res = await fetch("/api/sign/submit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        googleProfile: summary.googleProfile,
+        selectedOption: summary.selectedOption,
+        company: summary.company,
+        firstName: summary.firstName,
+        lastName: summary.lastName,
+        email: summary.email,
+        phone: summary.phone,
+        signaturePng,
+        counts: summary.counts,         // <- wichtig: 1–3 / 1–2 / 1
+        // rep_code/source_account_id kannst du hier später ergänzen
+      }),
     });
 
-    const out = await res.json().catch(() => ({}));
+    const json = await res.json();
+    if (!res.ok) throw new Error(json?.error || "Unbekannter Fehler");
 
-    // <- harte Prüfung: nur Fehler, wenn res.ok false ODER out.error vorhanden
-    if (!res.ok || out?.error) {
-      console.error("submit error:", { status: res.status, out });
-      alert(`Fehler beim Speichern: ${out?.error || `HTTP ${res.status}`}`);
-      setSaving(false);
-      return;
-    }
+    alert("Auftragsbestätigung erstellt.\nPDF-Link:\n" + json.pdfUrl);
+    // optional: Router-Push auf Danke-Seite
+    // router.push(`/thanks?pdf=${encodeURIComponent(json.pdfUrl)}`)
+  } catch (e) {
+    alert("Fehler: " + (e?.message || String(e)));
+  } finally {
+    setSaving(false);
+  }
+};
 
     // Erfolg
     console.log("PDF gespeichert:", out);
