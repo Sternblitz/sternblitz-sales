@@ -8,7 +8,7 @@ export default function SignPage() {
   const [isChecked, setIsChecked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Daten aus Step 1 (Session)
+  // Daten aus Step 1
   const [summary, setSummary] = useState({
     googleProfile: "",
     selectedOption: "",
@@ -18,14 +18,7 @@ export default function SignPage() {
   // Helpers
   const optionLabel = (opt) =>
     ({ "123": "1–3 ⭐", "12": "1–2 ⭐", "1": "1 ⭐", custom: "Individuell" }[opt] || opt);
-
-  const optionCount = (opt, c) => {
-    if (!c) return null;
-    if (opt === "123") return c.c123 ?? null;
-    if (opt === "12") return c.c12 ?? null;
-    if (opt === "1") return c.c1 ?? null;
-    return null;
-  };
+  const optionCount = (opt, c) => (opt === "123" ? c?.c123 : opt === "12" ? c?.c12 : opt === "1" ? c?.c1 : null);
 
   // Canvas vorbereiten
   useEffect(() => {
@@ -124,48 +117,48 @@ export default function SignPage() {
     <main className="sign-shell">
       <div className="card">
 
-        {/* HERO-PANEL: Logo + Titel + Bullets in EINER weißen Box */}
-        <section className="hero">
+        {/* Kopfbereich */}
+        <header className="brandbar">
           <img
             src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/68ad4679902a5d278c4cf0bc_Group%202085662922-p-500.png"
             alt="Sternblitz"
             className="logo"
           />
-          <div className="hero-box">
-            <h1>Auftragsbestätigung <span className="brand">Sternblitz</span></h1>
-            <p className="lead">
-              Hiermit bestätige ich den Auftrag zur Löschung meiner negativen Google-Bewertungen.
-            </p>
+        </header>
 
-            <ul className="bullets" role="list">
-              <li>
-                <ColorDot color="blue" />
-                <span><strong>Fixpreis: 290 €</strong> (einmalig)</span>
-              </li>
-              <li>
-                <ColorDot color="red" />
-                <span>Zahlung erst nach Löschung (von mind. 90 % der Bewertungen)</span>
-              </li>
-              <li>
-                <ColorDot color="green" />
-                <span>Dauerhafte Entfernung</span>
-              </li>
-            </ul>
-          </div>
+        {/* Hero-Box mit Bullets */}
+        <section className="hero-box">
+          <h1>Auftragsbestätigung <span className="brand">Sternblitz</span></h1>
+          <p className="lead">
+            Hiermit bestätige ich den Auftrag zur Löschung meiner negativen Google-Bewertungen.
+          </p>
+
+          <ul className="bullets" role="list">
+            <HeroBullet color="blue">Fixpreis: <strong>290 €</strong> (einmalig)</HeroBullet>
+            <HeroBullet color="red">Zahlung erst nach Löschung (von mind. 90&nbsp;% der Bewertungen)</HeroBullet>
+            <HeroBullet color="green">Dauerhafte Entfernung</HeroBullet>
+          </ul>
         </section>
 
         {/* Zusammenfassung */}
         <section className="summary" aria-labelledby="sumhead">
           <h2 id="sumhead" className="sr-only">Zusammenfassung</h2>
+
           <div className="row">
-            <div className="item itemL">
+            {/* Google-Profil (GRÜN akzent) */}
+            <div className="item tint-green">
+              <div className="accent" />
               <div className="label">Google-Profil</div>
               <div className="value">{summary.googleProfile || "—"}</div>
             </div>
-            <div className="item itemR">
+
+            {/* Zu löschende Bewertungen (BLAU akzent) */}
+            <div className="item tint-blue">
+              <div className="accent" />
               <div className="label">Zu löschende Bewertungen</div>
               <div className="value">
-                {chosenLabel || "—"} <span className="count">{countText}</span>
+                {chosenLabel || "—"}{" "}
+                <span className="count">{countText}</span>
               </div>
             </div>
           </div>
@@ -209,96 +202,106 @@ export default function SignPage() {
 
           <div className="actions">
             <button className="confirm" onClick={handleSubmit} disabled={submitting}>
-              <span className="confirm__shine" aria-hidden="true" />
               {submitting ? "Wird gespeichert…" : "Unterschrift bestätigen ✅"}
             </button>
           </div>
         </section>
       </div>
 
+      {/* Styles */}
       <style jsx>{`
+        /* ---------- Palette & Tokens ---------- */
         :root{
-          /* Google Palette */
           --g-blue:#4285F4;
           --g-red:#EA4335;
           --g-yellow:#FBBC05;
           --g-green:#34A853;
 
-          /* sanfter Grundton (dein Grün) + Akzente */
-          --g-soft:#d8e7db;
-          --bg-1:#f3f7ff;
-          --bg-2:#fff1f7;
-
-          --card:#ffffff;
+          --soft-green:#d8e7db; /* dein gewünschter Grünton */
           --ink:#0b0f19;
           --muted:#5b6472;
-          --line:#e6ebe8;
+          --line:#e7ece9;
 
-          --shadow-lg: 0 30px 70px rgba(10,20,10,.10);
-          --shadow-soft: 0 10px 28px rgba(88,126,106,.18);
+          --surface:#ffffff;
+          --shadow-strong: 0 28px 70px rgba(13, 34, 23, .12);
+          --shadow-soft: 0 10px 26px rgba(22, 74, 52, .12);
         }
 
-        /* Mehrfarbiger Seitenhintergrund (kräftiger, aber clean) */
+        /* ---------- Radikal neuer Hintergrund (klar & farbig) ---------- */
         .sign-shell{
           min-height:100dvh;
           background:
-            radial-gradient(1200px 800px at 50% -10%, rgba(216,231,219,.95) 0%, transparent 65%),
-            radial-gradient(1100px 700px at 120% -10%, rgba(255,164,231,.40) 0%, transparent 70%),
-            radial-gradient(1300px 900px at -20% 120%, rgba(152,195,171,.36) 0%, transparent 70%),
-            linear-gradient(180deg, #eef3ff 0%, #ffffff 50%, #fff 100%);
+            radial-gradient(1400px 900px at -15% -10%, rgba(66,133,244,.18) 0%, transparent 55%),
+            radial-gradient(1300px 800px at 120% -10%, rgba(234,67,53,.14) 0%, transparent 60%),
+            radial-gradient(1200px 900px at 50% 120%, rgba(27,94,32,.18) 0%, transparent 55%),
+            linear-gradient(180deg, #f7fbff 0%, #ffffff 50%, #ffffff 100%);
           display:flex;align-items:flex-start;justify-content:center;
-          padding:56px 14px 80px;
+          padding:56px 18px 90px;
         }
 
         .card{
-          width:100%;max-width:980px;background:var(--card);border:1px solid var(--line);
-          border-radius:22px;box-shadow:var(--shadow-lg);overflow:hidden;
+          width:100%;max-width:980px;background:transparent;border:0;border-radius:26px;overflow:hidden;
         }
 
-        /* HERO-PANEL */
-        .hero{padding:28px 22px 10px;text-align:center}
-        .logo{height:60px;width:auto;margin:0 auto 14px;object-fit:contain}
+        /* ---------- Brand-Leiste ---------- */
+        .brandbar{
+          display:flex;justify-content:center;align-items:center;
+          padding:6px 0 14px;
+        }
+        .logo{height:58px;width:auto;object-fit:contain;filter: drop-shadow(0 6px 16px rgba(0,0,0,.08));}
+
+        /* ---------- Hero-Box ---------- */
         .hero-box{
-          margin:0 auto;max-width:820px;
-          background:linear-gradient(180deg, #ffffff 0%, #ffffff 48%, #fbfffc 100%);
+          margin:0 auto 16px;max-width:920px;
+          background: var(--surface);
           border:1px solid var(--line);
           border-radius:18px;
-          box-shadow: var(--shadow-soft), inset 0 1px 0 rgba(255,255,255,.8);
-          padding:18px 18px 6px;
+          box-shadow: var(--shadow-strong);
+          padding:22px 22px 16px;
         }
-        h1{margin:2px 0 6px;font-size:28px;color:#111;font-weight:900;letter-spacing:.2px}
+        h1{margin:4px 0 6px;font-size:30px;line-height:1.1;font-weight:900;color:#111;text-align:center}
         .brand{color:#111}
-        .lead{margin:0 auto 10px;max-width:700px;color:var(--muted);font-weight:500}
+        .lead{margin:0 auto 14px;max-width:760px;color:var(--muted);text-align:center}
 
-        .bullets{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;align-items:flex-start}
-        .bullets li{
-          width:100%;
-          display:flex;align-items:center;gap:10px;
-          background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+        .bullets{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;align-items:stretch}
+        .bullet{
+          display:flex;align-items:center;gap:12px;
+          background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
           border:1px solid var(--line);
           border-radius:12px;
-          padding:10px 12px;
-          color:#111;font-weight:700;
+          padding:12px 14px;
+          font-weight:700;color:#111;
         }
+        .dot{width:18px;height:18px;border-radius:999px;box-shadow:0 0 0 3px rgba(255,255,255,.9), 0 6px 12px rgba(0,0,0,.08)}
+        .dot.blue{background:var(--g-blue)}
+        .dot.red{background:var(--g-red)}
+        .dot.green{background:var(--g-green)}
 
-        /* Zusammenfassung */
-        .summary{padding:18px 22px 10px}
-        .row{display:grid;grid-template-columns:3fr 2fr;gap:14px}
+        /* ---------- Zusammenfassung-Karten ---------- */
+        .summary{padding:14px 2px 0}
+        .row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
         .item{
-          background:linear-gradient(135deg, #f5fbf7 0%, #ffffff 70%);
+          position:relative;
+          background: var(--surface);
           border:1px solid var(--line);
-          border-radius:14px;padding:14px 16px;
-          box-shadow:0 8px 22px rgba(88,126,106,.08);
+          border-radius:16px;
+          padding:14px 16px 16px;
+          box-shadow: var(--shadow-soft);
         }
-        .itemL{border-top:4px solid var(--g-soft)}
-        .itemR{border-top:4px solid rgba(66,133,244,.35)}
-        .label{font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.06em}
-        .value{margin-top:6px;color:var(--ink);font-weight:800;word-break:break-word}
-        .count{margin-left:10px;color:#0b6cf2;font-weight:900}
+        .item .accent{
+          position:absolute;left:0;top:0;right:0;height:6px;border-top-left-radius:16px;border-top-right-radius:16px;
+          background: #ddd;
+        }
+        .tint-green .accent{ background: linear-gradient(90deg, var(--soft-green) 0%, #bfe0c8 100%); }
+        .tint-blue  .accent{ background: linear-gradient(90deg, rgba(66,133,244,.22) 0%, rgba(66,133,244,.45) 100%); }
 
-        /* Signatur */
-        .signature{padding:16px 22px 28px}
-        .sig-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+        .label{margin-top:2px;font-size:12px;color:var(--muted);font-weight:900;text-transform:uppercase;letter-spacing:.06em}
+        .value{margin-top:8px;color:var(--ink);font-weight:900;word-break:break-word}
+        .count{margin-left:8px;color:var(--g-blue);font-weight:900}
+
+        /* ---------- Signatur ---------- */
+        .signature{padding:18px 2px 28px}
+        .sig-head{display:flex;justify-content:space-between;align-items:center;margin:0 2px 10px}
         .sig-title{font-size:16px;font-weight:900;color:var(--ink)}
         .ghost{
           background:transparent;border:1px solid var(--line);color:#0f172a;border-radius:10px;
@@ -308,84 +311,52 @@ export default function SignPage() {
 
         .sig-pad{
           border:1px dashed #cfe0d4;border-radius:16px;
-          background:linear-gradient(180deg, #ffffff 0%, #f9fbf9 100%);
+          background: linear-gradient(180deg, #ffffff 0%, #fcfffd 100%);
           padding:14px;display:flex;justify-content:center;align-items:center;
           box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
         }
         .canvas{
-          width:100%;max-width:560px;height:240px;border:2px solid #e6ebe8;border-radius:14px;background:#fff;
-          touch-action:none;
+          width:100%;max-width:560px;height:240px;border:2px solid #e6ebe8;border-radius:14px;background:#fff;touch-action:none;
         }
 
-        .agree{display:flex;gap:10px;align-items:flex-start;margin:14px 0 0;color:var(--ink)}
+        .agree{display:flex;gap:10px;align-items:flex-start;margin:14px 2px 0;color:var(--ink)}
         .agree a{color:#0b6cf2;text-decoration:underline;text-underline-offset:3px}
 
-        /* Confirm: grüner Verlauf, Text SCHWARZ */
-        .actions{display:flex;justify-content:center;margin-top:22px}
+        /* ---------- Confirm Button (Text schwarz, grüner Chip) ---------- */
+        .actions{display:flex;justify-content:center;margin-top:20px}
         .confirm{
-          position:relative;overflow:hidden;
           display:inline-flex;align-items:center;gap:10px;
-          padding:14px 24px;border-radius:999px;border:1px solid rgba(27,94,32,.35);
-          background: linear-gradient(135deg, #eaf4ed 0%, var(--g-soft) 100%);
+          padding:14px 22px;border-radius:999px;border:1px solid rgba(27,94,32,.35);
+          background: linear-gradient(135deg, #eef6f0 0%, var(--soft-green) 100%);
           color:#0b0f19;
           font-weight:900;letter-spacing:.2px;
-          box-shadow: 0 16px 40px rgba(88,126,106,.28), inset 0 1px 0 rgba(255,255,255,.7);
+          box-shadow: 0 16px 40px rgba(22,74,52,.28), inset 0 1px 0 rgba(255,255,255,.7);
           transition: transform .12s ease, box-shadow .2s ease, filter .2s ease;
         }
-        .confirm:hover{transform:translateY(-1px);filter:brightness(1.02);box-shadow:0 22px 48px rgba(88,126,106,.34)}
+        .confirm:hover{transform:translateY(-1px);filter:brightness(1.02);box-shadow:0 22px 48px rgba(22,74,52,.34)}
         .confirm:active{transform:translateY(0);filter:brightness(.98)}
         .confirm:disabled{opacity:.6;cursor:not-allowed}
-        .confirm__shine{
-          position:absolute;inset:-30%;pointer-events:none;
-          background:
-            radial-gradient(120px 60px at 10% 20%, rgba(255,255,255,.65) 0%, transparent 60%),
-            radial-gradient(220px 120px at 80% 80%, rgba(255,255,255,.35) 0%, transparent 60%);
-          animation: shine 6s ease-in-out infinite;
-          content:"";
-        }
-        @keyframes shine{
-          0%{ transform: translateX(-6%) translateY(-4%) }
-          50%{ transform: translateX(6%) translateY(4%) }
-          100%{ transform: translateX(-6%) translateY(-4%) }
-        }
 
         .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
-        @media (max-width:820px){
-          .hero{padding:24px 14px 8px}
-          .logo{height:56px}
-          .hero-box{padding:16px 14px 8px}
+        /* ---------- Responsive ---------- */
+        @media (max-width:900px){
+          .hero-box{border-radius:16px;padding:18px 16px}
           .row{grid-template-columns:1fr}
-          .summary,.signature{padding:14px 14px 22px}
           .canvas{max-width:100%}
-          .bullets li{padding:10px 10px}
         }
       `}</style>
     </main>
   );
 }
 
-/* Farbpunkte in Google-Farben */
-function ColorDot({ color }) {
-  const map = {
-    blue: "var(--g-blue)",
-    red: "var(--g-red)",
-    yellow: "var(--g-yellow)",
-    green: "var(--g-green)",
-  };
-  const c = map[color] || "var(--g-green)";
+/* ---------- kleine UI-Bausteine ---------- */
+function HeroBullet({ color = "blue", children }) {
   return (
-    <span
-      aria-hidden="true"
-      style={{
-        width: 22,
-        height: 22,
-        borderRadius: 999,
-        background: c,
-        boxShadow: "0 0 0 3px rgba(255,255,255,.9), 0 6px 14px rgba(0,0,0,.12)",
-        display: "inline-block",
-        flex: "0 0 auto",
-      }}
-    />
+    <li className="bullet">
+      <span className={`dot ${color}`} aria-hidden="true" />
+      <span>{children}</span>
+      <style jsx>{``}</style>
+    </li>
   );
 }
