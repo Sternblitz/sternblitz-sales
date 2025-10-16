@@ -463,7 +463,30 @@ export default function LiveSimulator() {
           .rating-text{font-size:16px}
           #bad-count::after{width:140%;height:15px}
         }
+/* 1) Elternkarte bereit für Layering */
+.review-card{
+  position: relative;           /* neuer Stacking-Context für das Pseudo-Element */
+  border-radius: 16px;          /* wie gehabt */
+  /* Nichts weiter ändern – Inhalte bleiben unverändert */
+}
 
+/* 2) Weiße Box hinter ALLEM in der Karte */
+.review-card::before{
+  content: "";
+  position: absolute;
+  inset: 0;                     /* füllt die ganze Karte */
+  border-radius: inherit;
+  background: #fff;             /* <<< die weiße Fläche */
+  border: 1px solid rgba(15,23,42,.06);
+  box-shadow: 0 25px 60px rgba(2,6,23,.10);
+  z-index: 0;                   /* liegt hinter den echten Inhalten der Karte */
+}
+
+/* 3) Inhalte der Karte sicher über die weiße Box legen */
+.review-card > *{
+  position: relative;
+  z-index: 1;
+}
       `}</style>
     </>
   );
