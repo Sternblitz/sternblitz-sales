@@ -3,137 +3,207 @@
 import { useEffect, useRef, useState } from "react";
 import Script from "next/script";
 
-export default function SignPage() {
-  const canvasRef = useRef(null);
+type Counts = { c123: number | null; c12: number | null; c1: number | null };
 
-  // Zustand
+export default function SignPage() {
+  // Canvas
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [isChecked, setIsChecked] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
 
   // Step-1 Daten
-  const [summary, setSummary] = useState({
+  const [summary, setSummary] = useState<{
+    googleProfile: string;
+    googleUrl?: string;
+    selectedOption: "123" | "12" | "1" | "custom" | "";
+    counts: Counts;
+    company?: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    phone?: string;
+  }>({
     googleProfile: "",
-    selectedOption: "", // "123" | "12" | "1" | "custom"
+    selectedOption: "",
     counts: { c123: null, c12: null, c1: null },
+    company: "",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
   });
 
-  // Edit-Modi
-  const [editProfileOpen, setEditProfileOpen] = useState(false);
-  const [editRatingsOpen, setEditRatingsOpen] = useState(false);
+  // UI States
+  const [agree, setAgree] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editProfile, setEditProfile] = useState(false);
+  const [editContact, setEditContact] = useState(false);
+  const [editOptionOpen, setEditOptionOpen] = useState(false);
 
-  // Google Places
-  const editInputRef = useRef(null);
+  // lokale Bearbeitungsfelder
+  const formGoogleInputRef = useRef<HTMLInputElement | null>(null);
+  const [googleField, setGoogleField] = useState("");
+  const [contactDraft, setContactDraft] = useState({
+    company: "",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+  });
 
-  // Helpers
-  const OPTION_LABEL = { "123": "1–3 ⭐", "12": "1–2 ⭐", "1": "1 ⭐", custom: "Individuell" };
-  const optionLabel = (opt) => OPTION_LABEL[opt] || opt;
-  const optionCount = (opt, c) =>
-    opt === "123" ? c?.c123 : opt === "12" ? c?.c12 : opt === "1" ? c?.c1 : null;
+  // ========= Helper =========
+  const optionLabel = (opt: string) =>
+    ({ "123": "1–3 ⭐", "12": "1–2 ⭐", "1": "1 ⭐", custom: "Individuell" } as any)[opt] || "—";
 
-  // Canvas setup (retina)
+  const optionCount = (opt: string, c: Counts) => {
+    if (!c) return null;
+    if (opt === "123") return c.c123;
+    if (opt === "12") return c.c12;
+    if (opt === "1") return c.c1;
+    return null;
+  };
+
+  const fmtCount = (n: number | null) =>
+    Number.isFinite(n as number) ? `→ ${(n as number).toLocaleString()} Bewertungen` : "→ —";
+
+  // ========= Session laden =========
+  useEffect(() => {
+    try {
+      const p = JSON.parse(sessionStorage.getItem("sb_checkout_payload") || "{}");
+      const counts = (p?.counts as Counts) || { c123: null, c12: null, c1: null };
+      setSummary({
+        googleProfile: p?.googleProfile || "",
+        googleUrl: p?.googleUrl || "",
+        selectedOption: p?.selectedOption || "",
+        counts,
+        company: p?.company || "",
+        firstName: p?.firstName || "",
+        lastName: p?.lastName || "",
+        email: p?.email || "",
+        phone: p?.phone || "",
+      });
+      setGoogleField(p?.googleProfile || "");
+      setContactDraft({
+        company: p?.company || "",
+        firstName: p?.firstName || "",
+        lastName: p?.lastName || "",
+        email: p?.email || "",
+        phone: p?.phone || "",
+      });
+    } catch {}
+  }, []);
+
+  // ========= Canvas Setup =========
   useEffect(() => {
     const c = canvasRef.current;
     if (!c) return;
     const ratio = Math.max(window.devicePixelRatio || 1, 1);
-    const cssW = 560,
-      cssH = 240;
+    const cssW = 700;
+    const cssH = 260;
     c.style.width = cssW + "px";
     c.style.height = cssH + "px";
     c.width = cssW * ratio;
     c.height = cssH * ratio;
-    const ctx = c.getContext("2d");
+    const ctx = c.getContext("2d")!;
     ctx.scale(ratio, ratio);
     ctx.lineWidth = 2.4;
     ctx.lineCap = "round";
-    ctx.strokeStyle = "#0b0f19";
+    ctx.strokeStyle = "#0f172a";
   }, []);
 
-  // Session lesen
-  useEffect(() => {
+  // ========= Google Places für Profil-Edit =========
+  const initPlaces = () => {
     try {
-      const p = JSON.parse(sessionStorage.getItem("sb_checkout_payload") || "{}");
-      setSummary({
-        googleProfile: p?.googleProfile || "",
-        selectedOption: p?.selectedOption || "",
-        counts: p?.counts || { c123: null, c12: null, c1: null },
-      });
-    } catch {}
-  }, []);
-
-  // Places Autocomplete initialisieren, wenn Profil-Edit offen
-  useEffect(() => {
-    if (!editProfileOpen || !editInputRef.current) return;
-    const g = window.google;
-    if (!g?.maps?.places) return;
-    try {
-      const ac = new g.maps.places.Autocomplete(editInputRef.current, {
+      const g = (window as any).google;
+      if (!g?.maps?.places || !formGoogleInputRef.current) return;
+      const ac = new g.maps.places.Autocomplete(formGoogleInputRef.current, {
         types: ["establishment"],
         fields: ["name", "formatted_address", "url", "place_id"],
       });
       ac.addListener("place_changed", () => {
-        const place = ac.getPlace();
+        const place = ac.getPlace() || {};
         const name = place?.name || "";
         const address = place?.formatted_address || "";
+        const url = place?.url || "";
         const fresh = [name, address].filter(Boolean).join(", ");
-        if (!fresh) return;
-        setSummary((prev) => {
-          const next = { ...prev, googleProfile: fresh };
-          try {
-            const payload = JSON.parse(sessionStorage.getItem("sb_checkout_payload") || "{}");
-            payload.googleProfile = fresh;
-            sessionStorage.setItem("sb_checkout_payload", JSON.stringify(payload));
-          } catch {}
-          return next;
-        });
-        setEditProfileOpen(false);
+        setGoogleField(fresh);
+        setSummary((s) => ({ ...s, googleProfile: fresh, googleUrl: url }));
+        try {
+          const payloadRaw = sessionStorage.getItem("sb_checkout_payload") || "{}";
+          const payload = JSON.parse(payloadRaw);
+          payload.googleProfile = fresh;
+          payload.googleUrl = url;
+          sessionStorage.setItem("sb_checkout_payload", JSON.stringify(payload));
+        } catch {}
       });
     } catch {}
-  }, [editProfileOpen]);
+  };
 
-  // Zeichnen
-  const getPos = (e) => {
-    const rect = canvasRef.current.getBoundingClientRect();
-    if (e.touches && e.touches[0]) {
+  // ========= Zeichnen =========
+  const pos = (e: any) => {
+    const rect = canvasRef.current!.getBoundingClientRect();
+    if ("touches" in e) {
       const t = e.touches[0];
       return { x: t.clientX - rect.left, y: t.clientY - rect.top };
     }
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
-  const startDraw = (e) => {
+  const start = (e: any) => {
     e.preventDefault();
-    const { x, y } = getPos(e);
-    const ctx = canvasRef.current.getContext("2d");
+    const { x, y } = pos(e);
+    const ctx = canvasRef.current!.getContext("2d")!;
     ctx.beginPath();
     ctx.moveTo(x, y);
     setIsDrawing(true);
   };
-  const draw = (e) => {
+  const move = (e: any) => {
     if (!isDrawing) return;
     e.preventDefault();
-    const { x, y } = getPos(e);
-    const ctx = canvasRef.current.getContext("2d");
+    const { x, y } = pos(e);
+    const ctx = canvasRef.current!.getContext("2d")!;
     ctx.lineTo(x, y);
     ctx.stroke();
   };
-  const endDraw = (e) => {
+  const end = (e: any) => {
     if (!isDrawing) return;
     e.preventDefault();
     setIsDrawing(false);
   };
   const clearSig = () => {
-    const c = canvasRef.current;
-    const ctx = c.getContext("2d");
+    const c = canvasRef.current!;
+    const ctx = c.getContext("2d")!;
     ctx.clearRect(0, 0, c.width, c.height);
   };
 
-  // Submit
-  const handleSubmit = async () => {
-    if (!isChecked) {
+  // ========= Aktionen =========
+  const saveContact = () => {
+    setSummary((s) => ({ ...s, ...contactDraft }));
+    try {
+      const raw = sessionStorage.getItem("sb_checkout_payload") || "{}";
+      const payload = JSON.parse(raw);
+      Object.assign(payload, contactDraft);
+      sessionStorage.setItem("sb_checkout_payload", JSON.stringify(payload));
+    } catch {}
+    setEditContact(false);
+  };
+
+  const changeOption = (val: "123" | "12" | "1" | "custom") => {
+    setSummary((s) => ({ ...s, selectedOption: val }));
+    try {
+      const raw = sessionStorage.getItem("sb_checkout_payload") || "{}";
+      const payload = JSON.parse(raw);
+      payload.selectedOption = val;
+      sessionStorage.setItem("sb_checkout_payload", JSON.stringify(payload));
+    } catch {}
+    setEditOptionOpen(false);
+  };
+
+  const submit = async () => {
+    if (!agree) {
       alert("Bitte AGB & Datenschutz bestätigen.");
       return;
     }
-    const c = canvasRef.current;
+    // Canvas leer?
+    const c = canvasRef.current!;
     const blank = document.createElement("canvas");
     blank.width = c.width;
     blank.height = c.height;
@@ -141,389 +211,424 @@ export default function SignPage() {
       alert("Bitte unterschreiben.");
       return;
     }
-    setSubmitting(true);
+    setSaving(true);
     const signaturePng = c.toDataURL("image/png");
-    console.log("Signature (gekürzt):", signaturePng.slice(0, 60) + "…");
-    alert("Unterschrift erfasst! (Nächster Schritt: PDF & E-Mail)");
-    setSubmitting(false);
+    // TODO: Upload + PDF
+    console.log("Signature (base64…)", signaturePng.slice(0, 48) + "…");
+    alert("Unterschrift erfasst! (PDF & Versand folgt)");
+    setSaving(false);
   };
 
-  // Anzeigen
-  const chosen = summary.selectedOption || "";
-  const chosenLabel = optionLabel(chosen);
-  const chosenCount = optionCount(chosen, summary.counts);
-  const countText = Number.isFinite(chosenCount)
-    ? `→ ${Number(chosenCount).toLocaleString()} Bewertungen`
-    : "→ —";
-
-  // Ratings ändern + Session mitschreiben
-  const setOptionAndPersist = (opt) => {
-    setSummary((prev) => {
-      const next = { ...prev, selectedOption: opt };
-      try {
-        const payload = JSON.parse(sessionStorage.getItem("sb_checkout_payload") || "{}");
-        payload.selectedOption = opt;
-        sessionStorage.setItem("sb_checkout_payload", JSON.stringify(payload));
-      } catch {}
-      return next;
-    });
-  };
+  const chosenLabel = optionLabel(summary.selectedOption);
+  const chosenCount = optionCount(summary.selectedOption, summary.counts);
+  const countText = fmtCount(chosenCount);
 
   return (
-    <main className="sign-shell">
-      {/* Google Places (für Profil-Edit) */}
+    <main className="shell">
+      {/* Google Maps Script einmalig laden (nur falls nötig) */}
       <Script
         src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`}
         strategy="afterInteractive"
+        onLoad={initPlaces}
       />
 
-      <div className="card">
-        {/* Brand */}
-        <header className="brandbar">
+      {/* ======= CARD: Header + Bullets ======= */}
+      <section className="card card-hero">
+        <div className="hero-head">
           <img
+            className="logo"
             src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/68ad4679902a5d278c4cf0bc_Group%202085662922-p-500.png"
             alt="Sternblitz"
-            className="logo"
           />
-        </header>
+        </div>
+        <h1>Auftragsbestätigung <b>Sternblitz</b></h1>
+        <p className="lead">
+          Hiermit bestätige ich den Auftrag zur Löschung meiner negativen Google-Bewertungen.
+        </p>
 
-        {/* Hero */}
-        <section className="hero-box">
-          <h1>
-            Auftragsbestätigung <span className="brand">Sternblitz</span>
-          </h1>
-          <p className="lead">
-            Hiermit bestätige ich den Auftrag zur Löschung meiner negativen Google-Bewertungen.
-          </p>
+        <div className="bullets">
+          <div className="bullet">
+            <span className="tick">✅</span>
+            <span>Fixpreis: <b>299 €</b> (einmalig)</span>
+          </div>
+          <div className="bullet">
+            <span className="tick">✅</span>
+            <span>Zahlung erst nach Löschung (von mind. 90 % der Bewertungen)</span>
+          </div>
+          <div className="bullet">
+            <span className="tick">✅</span>
+            <span>Dauerhafte Entfernung</span>
+          </div>
+        </div>
+      </section>
 
-          <ul className="bullets" role="list">
-            <Bullet color="blue">
-              Fixpreis: <strong>290 €</strong> (einmalig)
-            </Bullet>
-            <Bullet color="red">
-              Zahlung erst nach Löschung (von mind. 90&nbsp;% der Bewertungen)
-            </Bullet>
-            <Bullet color="green">Dauerhafte Entfernung</Bullet>
-          </ul>
-        </section>
+      {/* ======= GRID: Profil + Option ======= */}
+      <section className="grid-2">
+        {/* Google-Profil (mit grüner Top-Bar + Stift) */}
+        <div className="card with-bar green">
+          <div className="bar">
+            <span>Google-Profil</span>
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => {
+                setEditProfile((v) => !v);
+                setTimeout(() => formGoogleInputRef.current?.focus(), 10);
+              }}
+              aria-label="Profil bearbeiten"
+              title="Profil bearbeiten"
+            >
+              ✏️
+            </button>
+          </div>
 
-        {/* Summary */}
-        <section className="summary" aria-labelledby="sumhead">
-          <h2 id="sumhead" className="sr-only">
-            Zusammenfassung
-          </h2>
-
-          <div className="row">
-            {/* Google-Profil – Top-Bar GRÜN + ✏️ */}
-            <div className="item tint-green">
-              <div className="accent" />
-              <div className="item-head">
-                <div className="label">Google-Profil</div>
-                <button
-                  type="button"
-                  className="edit"
-                  onClick={() => setEditProfileOpen((v) => !v)}
-                  aria-label={editProfileOpen ? "Bearbeitung schließen" : "Google-Profil bearbeiten"}
-                  title={editProfileOpen ? "Bearbeitung schließen" : "Bearbeiten"}
-                >
-                  ✏️
-                </button>
-              </div>
-
-              {!editProfileOpen ? (
-                <div className="value">{summary.googleProfile || "—"}</div>
-              ) : (
-                <div className="edit-row">
-                  <input
-                    ref={editInputRef}
-                    type="search"
-                    inputMode="search"
-                    placeholder='Unternehmen suchen… z. B. "Restaurant XY, Berlin"'
-                  />
-                  <small className="edit-hint">Suche & wähle im Dropdown, um zu übernehmen.</small>
-                </div>
-              )}
+          {!editProfile ? (
+            <div className="content">
+              <div className="value">{summary.googleProfile || "—"}</div>
+              {summary.googleUrl ? (
+                <a className="open" href={summary.googleUrl} target="_blank" rel="noreferrer">
+                  Profil öffnen ↗
+                </a>
+              ) : null}
             </div>
-
-            {/* Zu löschende Bewertungen – Top-Bar BLAU + ✏️ + Auswahlpanel */}
-            <div className="item tint-blue">
-              <div className="accent" />
-              <div className="item-head">
-                <div className="label">Zu löschende Bewertungen</div>
+          ) : (
+            <div className="content">
+              <input
+                ref={formGoogleInputRef}
+                type="search"
+                inputMode="search"
+                placeholder='Unternehmen suchen oder eintragen … z. B. "Restaurant XY, Berlin"'
+                value={googleField}
+                onChange={(e) => setGoogleField(e.target.value)}
+                className="text"
+              />
+              <div className="row-actions">
                 <button
                   type="button"
-                  className="edit"
-                  onClick={() => setEditRatingsOpen((v) => !v)}
-                  aria-label={editRatingsOpen ? "Bearbeitung schließen" : "Option bearbeiten"}
-                  title={editRatingsOpen ? "Bearbeitung schließen" : "Bearbeiten"}
+                  className="btn ghost"
+                  onClick={() => {
+                    setEditProfile(false);
+                    setGoogleField(summary.googleProfile || "");
+                  }}
                 >
-                  ✏️
+                  Abbrechen
+                </button>
+                <button
+                  type="button"
+                  className="btn solid"
+                  onClick={() => {
+                    setSummary((s) => ({ ...s, googleProfile: googleField }));
+                    try {
+                      const raw = sessionStorage.getItem("sb_checkout_payload") || "{}";
+                      const payload = JSON.parse(raw);
+                      payload.googleProfile = googleField;
+                      sessionStorage.setItem("sb_checkout_payload", JSON.stringify(payload));
+                    } catch {}
+                    setEditProfile(false);
+                  }}
+                >
+                  Übernehmen
                 </button>
               </div>
+            </div>
+          )}
+        </div>
 
-              <div className="value">
-                {chosen ? (
-                  <>
-                    {chosenLabel} <span className="count">{countText}</span>
-                  </>
-                ) : (
-                  <span className="placeholder">Bitte wählen…</span>
-                )}
-              </div>
-
-              {editRatingsOpen && (
-                <div className="ratings-pop">
-                  {["123", "12", "1", "custom"].map((opt) => (
-                    <label key={opt} className={`opt ${chosen === opt ? "on" : ""}`}>
-                      <input
-                        type="radio"
-                        name="ratingsopt"
-                        value={opt}
-                        checked={chosen === opt}
-                        onChange={() => setOptionAndPersist(opt)}
-                      />
-                      <span className="mark" />
-                      <span className="txt">
-                        {optionLabel(opt)}
-                        {opt !== "custom" && (
-                          <em className="cnt">
-                            {(() => {
-                              const n = optionCount(opt, summary.counts);
-                              return Number.isFinite(n) ? `→ ${n.toLocaleString()} Bewertungen` : "→ —";
-                            })()}
-                          </em>
-                        )}
-                      </span>
-                    </label>
-                  ))}
-                  <div className="pop-actions">
+        {/* Zu löschende Bewertungen (blaue Top-Bar + Stift + Menü) */}
+        <div className="card with-bar blue">
+          <div className="bar">
+            <span>Zu löschende Bewertungen</span>
+            <div className="bar-right">
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => setEditOptionOpen((v) => !v)}
+                aria-label="Bewertungs-Option ändern"
+                title="Bewertungs-Option ändern"
+              >
+                ✏️
+              </button>
+              {editOptionOpen && (
+                <div className="dropdown">
+                  {[
+                    ["123", "1–3 ⭐ löschen"],
+                    ["12", "1–2 ⭐ löschen"],
+                    ["1", "1 ⭐ löschen"],
+                    ["custom", "Individuelle Löschungen"],
+                  ].map(([val, label]) => (
                     <button
+                      key={val}
                       type="button"
-                      className="ghost small"
-                      onClick={() => setEditRatingsOpen(false)}
+                      className={`drop-item ${summary.selectedOption === val ? "on" : ""}`}
+                      onClick={() => changeOption(val as any)}
                     >
-                      Fertig
+                      {label}
                     </button>
-                  </div>
+                  ))}
                 </div>
               )}
             </div>
           </div>
-        </section>
 
-        {/* Signatur */}
-        <section className="signature" aria-labelledby="sighead">
-          <div className="sig-head">
-            <div id="sighead" className="sig-title">
-              Unterschrift
+          <div className="content">
+            <div className="value">
+              {chosenLabel} <span className="count">{countText}</span>
             </div>
-            <button type="button" className="ghost" onClick={clearSig}>
-              Löschen
-            </button>
           </div>
+        </div>
+      </section>
 
-          <div className="sig-pad">
-            <canvas
-              ref={canvasRef}
-              className="canvas"
-              onMouseDown={startDraw}
-              onMouseMove={draw}
-              onMouseUp={endDraw}
-              onMouseLeave={endDraw}
-              onTouchStart={startDraw}
-              onTouchMove={draw}
-              onTouchEnd={endDraw}
-            />
+      {/* ======= Kontakt-Übersicht (dezent, editierbar mit Stift) ======= */}
+      <section className="card with-bar violet">
+        <div className="bar">
+          <span>Kontakt-Übersicht</span>
+          <button
+            className="icon-btn"
+            type="button"
+            onClick={() => setEditContact((v) => !v)}
+            aria-label="Kontaktdaten bearbeiten"
+            title="Kontaktdaten bearbeiten"
+          >
+            ✏️
+          </button>
+        </div>
+
+        {!editContact ? (
+          <div className="contact-grid readonly">
+            <div><b>Firma:</b> {summary.company || "—"}</div>
+            <div><b>Vorname:</b> {summary.firstName || "—"}</div>
+            <div><b>Nachname:</b> {summary.lastName || "—"}</div>
+            <div><b>E-Mail:</b> {summary.email || "—"}</div>
+            <div><b>Telefon:</b> {summary.phone || "—"}</div>
           </div>
+        ) : (
+          <>
+            <div className="contact-grid">
+              <label>
+                <span>Firma</span>
+                <input
+                  value={contactDraft.company}
+                  onChange={(e) => setContactDraft((d) => ({ ...d, company: e.target.value }))}
+                />
+              </label>
+              <label>
+                <span>Vorname</span>
+                <input
+                  value={contactDraft.firstName}
+                  onChange={(e) => setContactDraft((d) => ({ ...d, firstName: e.target.value }))}
+                />
+              </label>
+              <label>
+                <span>Nachname</span>
+                <input
+                  value={contactDraft.lastName}
+                  onChange={(e) => setContactDraft((d) => ({ ...d, lastName: e.target.value }))}
+                />
+              </label>
+              <label>
+                <span>E-Mail</span>
+                <input
+                  type="email"
+                  value={contactDraft.email}
+                  onChange={(e) => setContactDraft((d) => ({ ...d, email: e.target.value }))}
+                />
+              </label>
+              <label>
+                <span>Telefon</span>
+                <input
+                  value={contactDraft.phone}
+                  onChange={(e) => setContactDraft((d) => ({ ...d, phone: e.target.value }))}
+                />
+              </label>
+            </div>
+            <div className="row-actions">
+              <button className="btn ghost" type="button" onClick={() => setEditContact(false)}>
+                Abbrechen
+              </button>
+              <button className="btn solid" type="button" onClick={saveContact}>
+                Speichern
+              </button>
+            </div>
+          </>
+        )}
+      </section>
 
-          <label className="agree">
-            <input
-              type="checkbox"
-              checked={isChecked}
-              onChange={(e) => setIsChecked(e.target.checked)}
-            />
-            <span>
-              Ich stimme den{" "}
-              <a href="/AGB.pdf" target="_blank" rel="noopener noreferrer">
-                AGB
-              </a>{" "}
-              und den{" "}
-              <a href="/Datenschutz.pdf" target="_blank" rel="noopener noreferrer">
-                Datenschutzbestimmungen
-              </a>{" "}
-              zu.
-            </span>
-          </label>
+      {/* ======= Signatur ======= */}
+      <section className="card signature">
+        <div className="sig-head">
+          <div className="sig-title">Unterschrift</div>
+          <button type="button" className="icon-btn" onClick={clearSig} title="Unterschrift löschen">
+            🗑️
+          </button>
+        </div>
 
-          <div className="actions">
-            <button className="confirm" onClick={handleSubmit} disabled={submitting}>
-              {submitting ? "Wird gespeichert…" : "Unterschrift bestätigen ✅"}
-            </button>
-          </div>
-        </section>
-      </div>
+        <div className="pad-wrap">
+          <canvas
+            ref={canvasRef}
+            className="pad"
+            onMouseDown={start}
+            onMouseMove={move}
+            onMouseUp={end}
+            onMouseLeave={end}
+            onTouchStart={start}
+            onTouchMove={move}
+            onTouchEnd={end}
+          />
+        </div>
 
-      {/* Styles */}
+        <label className="agree">
+          <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
+          <span>
+            Ich stimme den{" "}
+            <a href="/AGB.pdf" target="_blank" rel="noopener noreferrer">AGB</a>{" "}
+            und den{" "}
+            <a href="/Datenschutz.pdf" target="_blank" rel="noopener noreferrer">Datenschutzbestimmungen</a>{" "}
+            zu.
+          </span>
+        </label>
+
+        <div className="cta">
+          <button className="confirm" onClick={submit} disabled={saving}>
+            {saving ? "Wird gespeichert …" : "Unterschrift bestätigen ✅"}
+          </button>
+        </div>
+      </section>
+
+      {/* ======= Styles ======= */}
       <style jsx>{`
         :root{
-          --g-blue:#4285F4;
-          --g-red:#EA4335;
-          --g-yellow:#FBBC05;
-          --g-green:#34A853;
-
-          --ink:#0b0f19;
-          --muted:#5b6472;
-          --line:#e7ece9;
-
-          --surface:#ffffff;
-          --emerald-soft:#d8e7db; /* dein Grün */
-          --emerald-strong:#10b981;
-          --blue-strong:#2563eb;
+          --ink:#0f172a;
+          --muted:#64748b;
+          --line:#e5e7eb;
+          --shadow:0 22px 60px rgba(2, 6, 23, .10);
+          --shadow-soft: 0 16px 36px rgba(2,6,23,.08);
+          --green:#22c55e;
+          --green-100:#d8e7db; /* dein Wunschton */
+          --blue:#0b6cf2;
+          --vio:#7c3aed;
+          --card:#ffffff;
         }
 
-        /* HELLER, aber klarer Verlauf – keine graue Suppe */
-        .sign-shell{
+        /* Hintergrund: klarer, zweifarbiger Verlauf (heller eingestellt) */
+        .shell{
           min-height:100dvh;
           background:
-            radial-gradient(900px 600px at 12% -8%, rgba(16,185,129,.18) 0%, transparent 60%),
-            radial-gradient(900px 700px at 88% -12%, rgba(37,99,235,.18) 0%, transparent 60%),
-            linear-gradient(135deg, rgba(16,185,129,.12) 0%, rgba(37,99,235,.12) 100%),
-            linear-gradient(135deg, #f6fffb 0%, #f6f9ff 100%);
-          display:flex;align-items:flex-start;justify-content:center;
-          padding:60px 18px 90px;
+            radial-gradient(1200px 600px at 10% 0%, rgba(216,231,219,.85) 0%, transparent 60%),
+            radial-gradient(1400px 700px at 100% 0%, rgba(173,203,255,.75) 0%, transparent 62%),
+            linear-gradient(180deg, #f7fbff 0%, #f9fcff 60%, #ffffff 100%);
+          padding:48px 14px 72px;
+          display:flex;flex-direction:column;gap:18px;align-items:center;
         }
 
-        /* Card-Stack */
-        .card{width:100%;max-width:980px;background:transparent;border:0;border-radius:26px;overflow:visible}
-
-        .brandbar{display:flex;justify-content:center;align-items:center;padding:2px 0 14px}
-        .logo{height:66px;width:auto;object-fit:contain;filter:drop-shadow(0 8px 18px rgba(0,0,0,.12))}
-
-        /* HERO-KARTE: heller + kräftiger Shadow */
-        .hero-box{
-          margin:0 auto 18px;max-width:920px;background:var(--surface);
-          border:1px solid var(--line);border-radius:20px;
-          box-shadow:
-            0 30px 70px rgba(16,185,129,.14),
-            0 18px 36px rgba(37,99,235,.10),
-            0 2px 0 rgba(255,255,255,.8) inset;  /* feiner Glanz */
-          padding:22px 22px 18px;
+        .card{
+          width:100%;max-width:980px;background:var(--card);
+          border:1px solid rgba(15,23,42,.08);
+          border-radius:20px;box-shadow:var(--shadow);overflow:hidden;
         }
-        h1{margin:4px 0 6px;font-size:30px;line-height:1.1;font-weight:900;color:#111;text-align:center}
-        .brand{color:#111}
-        .lead{margin:0 auto 14px;max-width:760px;color:var(--muted);text-align:center}
+        .card-hero{
+          text-align:center;padding:26px 20px 18px;
+          background: linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,.85) 58%, #ffffff 100%);
+          box-shadow: var(--shadow);
+        }
+        .hero-head{display:flex;justify-content:center}
+        .logo{height:56px;width:auto;object-fit:contain;filter: drop-shadow(0 4px 10px rgba(0,0,0,.08))}
+        h1{margin:6px 0 4px;font-size:28px;color:#000;font-weight:800}
+        .lead{margin:0 auto 12px;max-width:780px;color:var(--muted)}
 
-        /* Bullets */
-        .bullets{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+        .bullets{display:flex;flex-direction:column;gap:10px;margin:8px auto 4px;max-width:760px}
         .bullet{
-          display:flex;align-items:center;gap:12px;
-          background:linear-gradient(180deg,#ffffff 0%, #f6fbff 100%);
-          border:1px solid var(--line);
-          border-radius:12px;padding:12px 14px;font-weight:800;color:#111;
+          display:flex;gap:10px;align-items:center;justify-content:flex-start;
+          background:#ffffff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;
+          box-shadow: var(--shadow-soft);
         }
-        .tick{width:20px;height:20px;border-radius:999px;display:grid;place-items:center;color:white;font-size:12px;line-height:1}
-        .tick.blue{background:var(--g-blue)}
-        .tick.red{background:var(--g-red)}
-        .tick.green{background:var(--g-green)}
+        .tick{font-size:16px}
 
-        /* Summary Cards */
-        .summary{padding:14px 2px 0}
-        .row{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-        .item{
-          position:relative;background:var(--surface);border:1px solid var(--line);border-radius:16px;
-          padding:14px 16px 16px;box-shadow:0 14px 34px rgba(0,0,0,.06)
+        .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:980px;width:100%}
+
+        .with-bar .bar{
+          display:flex;align-items:center;justify-content:space-between;gap:10px;
+          padding:8px 12px;font-weight:800;color:#0b0b0b;border-bottom:1px solid rgba(15,23,42,.06);
         }
-        .item .accent{
-          position:absolute;left:0;top:0;right:0;height:8px;border-top-left-radius:16px;border-top-right-radius:16px;
+        .with-bar.blue .bar{background:linear-gradient(90deg, rgba(11,108,242,.14), rgba(11,108,242,.06));}
+        .with-bar.green .bar{background:linear-gradient(90deg, rgba(34,197,94,.18), rgba(34,197,94,.08));}
+        .with-bar.violet .bar{background:linear-gradient(90deg, rgba(124,58,237,.14), rgba(124,58,237,.06));}
+        .with-bar .content{padding:12px 14px}
+        .with-bar .value{font-weight:800;color:#0a0a0a}
+        .with-bar .count{margin-left:8px;color:var(--blue);font-weight:800}
+
+        .icon-btn{
+          border:1px solid rgba(0,0,0,.08);background:#fff;border-radius:10px;min-width:30px;height:30px;
+          display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
+          box-shadow:0 6px 16px rgba(0,0,0,.06);
         }
-        /* sichere, sichtbare Top-Bars */
-        .tint-green .accent{background:linear-gradient(90deg, var(--emerald-soft) 0%, #bfe0c8 100%)}
-        .tint-blue  .accent{background:linear-gradient(90deg, rgba(66,133,244,.4) 0%, rgba(37,99,235,.65) 100%)}
+        .icon-btn:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(0,0,0,.08)}
 
-        .item-head{display:flex;align-items:center;justify-content:space-between}
-        .label{margin-top:2px;font-size:12px;color:var(--muted);font-weight:900;text-transform:uppercase;letter-spacing:.06em}
-        .value{margin-top:8px;color:var(--ink);font-weight:900;word-break:break-word}
-        .count{margin-left:8px;color:var(--g-blue);font-weight:900}
-        .placeholder{color:#94a3b8;font-weight:700}
-
-        .edit{
-          border:1px solid var(--line);background:#fff;border-radius:8px;padding:4px 8px;cursor:pointer;
-          box-shadow:0 6px 14px rgba(0,0,0,.06);font-weight:800
+        .text{
+          width:100%;height:36px;border-radius:10px;border:1px solid rgba(0,0,0,.12);padding:6px 10px;
         }
-        .edit:hover{background:#f4f8f5}
-
-        .edit-row{margin-top:8px;display:flex;flex-direction:column;gap:6px}
-        .edit-row input{
-          height:38px;border:1px solid #cfe0d4;border-radius:10px;padding:6px 10px;font-size:15px;outline:none;
+        .row-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:10px}
+        .btn{
+          border-radius:10px;height:34px;padding:0 12px;font-weight:800;letter-spacing:.2px;cursor:pointer;
         }
-        .edit-row input:focus{border-color:#16a34a;box-shadow:0 0 0 3px rgba(22,163,74,.18)}
-        .edit-hint{color:#577; font-size:12px}
+        .btn.ghost{border:1px solid var(--line);background:#fff}
+        .btn.solid{border:1px solid #0b6cf2;background:#0b6cf2;color:#fff}
 
-        /* Ratings Popover */
-        .ratings-pop{
-          position:relative;margin-top:10px;border:1px solid var(--line);border-radius:12px;
-          background:#fff;box-shadow:0 18px 42px rgba(0,0,0,.08);padding:10px;
+        .open{display:inline-flex;margin-top:6px;color:#0b6cf2;font-weight:700}
+
+        .bar-right{position:relative;display:flex;align-items:center;gap:6px}
+        .dropdown{
+          position:absolute;top:36px;right:0;background:#fff;border:1px solid var(--line);border-radius:12px;
+          box-shadow:0 18px 46px rgba(0,0,0,.12);overflow:hidden;z-index:30;min-width:210px;
         }
-        .opt{display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;cursor:pointer}
-        .opt:hover{background:#f7fafc}
-        .opt input{display:none}
-        .opt .mark{width:18px;height:18px;border-radius:4px;border:2px solid #64748b;display:inline-block;position:relative;flex:none}
-        .opt.on .mark{border-color:#0b6cf2;background:#eaf3ff}
-        .opt.on .mark::after{content:"";position:absolute;inset:3px;background:#0b6cf2;border-radius:2px}
-        .opt .txt{font-weight:800}
-        .opt .cnt{margin-left:8px;font-style:normal;color:#0b6cf2;font-weight:900}
-        .pop-actions{display:flex;justify-content:flex-end;margin-top:6px}
-        .ghost.small{padding:6px 10px;border-radius:8px}
-
-        /* Signature */
-        .signature{padding:18px 2px 24px} /* etwas weniger unten -> keine „Linie“ */
-        .sig-head{display:flex;justify-content:space-between;align-items:center;margin:0 2px 10px}
-        .sig-title{font-size:16px;font-weight:900;color:var(--ink)}
-        .ghost{background:transparent;border:1px solid var(--line);color:#0f172a;border-radius:10px;padding:6px 12px;font-weight:800;cursor:pointer}
-        .ghost:hover{background:#f8fafc}
-
-        .sig-pad{
-          border:1px dashed #cfe0d4;border-radius:16px;background:linear-gradient(180deg,#ffffff 0%, #fcfffd 100%);
-          padding:14px;display:flex;justify-content:center;align-items:center;
+        .drop-item{
+          display:block;width:100%;text-align:left;padding:10px 12px;background:#fff;border:0;cursor:pointer;
         }
-        .canvas{width:100%;max-width:560px;height:240px;border:2px solid #e6ebe8;border-radius:14px;background:#fff;touch-action:none}
+        .drop-item:hover{background:#f6faff}
+        .drop-item.on{background:#eef5ff;font-weight:800}
 
-        .agree{display:flex;gap:10px;align-items:flex-start;margin:14px 2px 0;color:var(--ink)}
-        .agree a{color:#0b6cf2;text-decoration:underline;text-underline-offset:3px}
+        .contact-grid{display:grid;grid-template-columns:repeat(5, minmax(0,1fr));gap:10px;padding:12px 14px}
+        .contact-grid.readonly{grid-template-columns:repeat(3, minmax(0,1fr))}
+        .contact-grid label{display:flex;flex-direction:column;gap:6px}
+        .contact-grid label input{
+          height:34px;border:1px solid rgba(0,0,0,.12);border-radius:10px;padding:6px 10px;
+        }
+        .contact-grid span{font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em}
 
-        .actions{display:flex;justify-content:center;margin-top:18px}
+        .signature{padding:12px 14px}
+        .sig-head{display:flex;justify-content:space-between;align-items:center;padding:4px 2px 8px}
+        .sig-title{font-size:16px;font-weight:800}
+        .pad-wrap{
+          border:1px dashed #cbd5e1;border-radius:16px;background:#fff;padding:12px;box-shadow:var(--shadow-soft);
+        }
+        .pad{width:100%;max-width:700px;height:260px;border:2px solid #e5e7eb;border-radius:12px;background:#fff;touch-action:none;margin:0 auto;display:block}
+
+        .agree{display:flex;gap:10px;align-items:flex-start;margin:12px 2px 0;color:var(--ink)}
+        .agree a{color:#0b6cf2;text-decoration:underline}
+
+        .cta{display:flex;justify-content:center;margin-top:16px}
         .confirm{
-          display:inline-flex;align-items:center;gap:10px;padding:16px 26px;border-radius:999px;border:1px solid rgba(27,94,32,.28);
-          background:linear-gradient(135deg,#eef7f1 0%, var(--emerald-soft) 100%);
-          color:#0b0f19;font-weight:900;letter-spacing:.2px;
-          box-shadow:
-            0 16px 38px rgba(22,74,52,.22),
-            0 2px 0 rgba(255,255,255,.75) inset;
-          transition:transform .12s ease, box-shadow .2s ease, filter .2s ease;
+          display:inline-flex;align-items:center;justify-content:center;gap:10px;
+          padding:14px 22px;border-radius:999px;border:1px solid rgba(0,0,0,.16);
+          background:linear-gradient(135deg, #d6f2e1 0%, #bcead0 100%);
+          color:#0b0b0b;font-weight:900;letter-spacing:.2px;
+          box-shadow:0 14px 34px rgba(34,197,94,.30);
+          transition:transform .12s ease, box-shadow .18s ease, filter .18s ease;
         }
-        .confirm:hover{transform:translateY(-1px);filter:brightness(1.02);box-shadow:0 22px 48px rgba(22,74,52,.28)}
+        .confirm:hover{transform:translateY(-1px);filter:brightness(1.03);box-shadow:0 18px 42px rgba(34,197,94,.38)}
         .confirm:active{transform:translateY(0);filter:brightness(.98)}
         .confirm:disabled{opacity:.6;cursor:not-allowed}
 
-        .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-
-        @media (max-width:900px){
-          .hero-box{border-radius:16px;padding:18px 16px}
-          .row{grid-template-columns:1fr}
-          .canvas{max-width:100%}
+        @media (max-width:1000px){
+          .grid-2{grid-template-columns:1fr}
+          .contact-grid{grid-template-columns:1fr 1fr}
+          .contact-grid.readonly{grid-template-columns:1fr 1fr}
+          .pad{max-width:100%}
+        }
+        @media (max-width:560px){
+          .contact-grid{grid-template-columns:1fr}
+          .contact-grid.readonly{grid-template-columns:1fr}
         }
       `}</style>
     </main>
-  );
-}
-
-/* Bullet-Atom */
-function Bullet({ color = "blue", children }) {
-  return (
-    <li className="bullet">
-      <span className={`tick ${color}`} aria-hidden="true">✔</span>
-      <span>{children}</span>
-      <style jsx>{``}</style>
-    </li>
   );
 }
