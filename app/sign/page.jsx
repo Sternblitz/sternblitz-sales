@@ -224,6 +224,7 @@ const submit = async () => {
       lastName: summary.lastName,
       email: summary.email,
       phone: summary.phone,
+      counts: summary.counts,
       signaturePng,
     };
 
