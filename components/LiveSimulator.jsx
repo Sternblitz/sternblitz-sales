@@ -463,6 +463,29 @@ export default function LiveSimulator() {
           .rating-text{font-size:16px}
           #bad-count::after{width:140%;height:15px}
         }
+        /* Simulator vor Seiten-Gradient schützen */
+.review-container{
+  position: relative;
+  isolation: isolate;           /* eigener Stacking-Context */
+  border-radius: 16px;          /* an deinen Radius anpassen */
+  box-shadow: 0 24px 60px rgba(2,6,23,.10); /* optional: etwas Lift */
+}
+
+/* weiße Basis unter alle Inhalte legen */
+.review-container::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius: inherit;
+  background:#fff;              /* <<< verhindert Farbüberlagerung */
+  z-index:0;
+}
+
+/* eigentliche Inhalte wieder oben drauf */
+.review-container > *{
+  position: relative;
+  z-index:1;
+}
       `}</style>
     </>
   );
