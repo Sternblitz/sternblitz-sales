@@ -463,29 +463,7 @@ export default function LiveSimulator() {
           .rating-text{font-size:16px}
           #bad-count::after{width:140%;height:15px}
         }
-/* Live-Simulator isolieren – verhindert jede Überlagerung vom Seiten-Gradient */
-.review-container{
-  position: relative !important; /* eigener Kontext */
-  isolation: isolate;
-  border-radius: 16px;           /* ggf. an deine Rundung anpassen */
-  z-index: 1;                    /* sicher über dem Seiten-::before */
-}
 
-/* weiße Basis direkt unter den Simulator-Inhalten */
-.review-container::before{
-  content:"";
-  position:absolute;
-  inset:0;
-  border-radius: inherit;
-  background:#fff;               /* füllt transparente Stellen im Simulator-Hintergrund */
-  z-index:0;
-}
-
-/* Inhalte des Simulators wieder nach oben */
-.review-container > *{
-  position: relative;
-  z-index:1;
-}
       `}</style>
     </>
   );
