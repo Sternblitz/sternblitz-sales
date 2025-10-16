@@ -69,6 +69,16 @@ export default function LiveSimulator() {
         totalReviews: typeof json.totalReviews === "number" ? json.totalReviews : 250,
         breakdown: json.breakdown || { 1: 10, 2: 20, 3: 30, 4: 90, 5: 100 },
       });
+      +     // 👉 Stats in sessionStorage + Event für das Formular
++     try {
++       const stats = {
++         totalReviews:
++           typeof json.totalReviews === "number" ? json.totalReviews : 250,
++         breakdown: json.breakdown || { 1: 10, 2: 20, 3: 30, 4: 90, 5: 100 },
++       };
++       sessionStorage.setItem("sb_stats", JSON.stringify(stats));
++       window.dispatchEvent(new CustomEvent("sb:stats", { detail: stats }));
++     } catch {}
     } catch (e) {
       stop();
       setLoadingText("");
