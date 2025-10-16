@@ -16,12 +16,13 @@ export default function SignPage() {
   });
 
   // --- Helper: Option → Label + Count aus Session ---
-  const optionLabel = (opt) => ({ "123": "1–3 ⭐", "12": "1–2 ⭐", "1": "1 ⭐", "custom": "Individuell" }[opt] || opt);
+  const optionLabel = (opt) =>
+    ({ "123": "1–3 ⭐", "12": "1–2 ⭐", "1": "1 ⭐", custom: "Individuell" }[opt] || opt);
   const optionCount = (opt, c) => {
     if (!c) return null;
     if (opt === "123") return c.c123;
-    if (opt === "12")  return c.c12;
-    if (opt === "1")   return c.c1;
+    if (opt === "12") return c.c12;
+    if (opt === "1") return c.c1;
     return null;
   };
 
@@ -30,7 +31,8 @@ export default function SignPage() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ratio = Math.max(window.devicePixelRatio || 1, 1);
-    const cssW = 500, cssH = 220;
+    const cssW = 500,
+      cssH = 220;
     canvas.style.width = cssW + "px";
     canvas.style.height = cssH + "px";
     canvas.width = cssW * ratio;
@@ -63,21 +65,47 @@ export default function SignPage() {
     }
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
-  const startDraw = (e) => { e.preventDefault(); const {x,y}=getPos(e); const ctx=canvasRef.current.getContext("2d"); ctx.beginPath(); ctx.moveTo(x,y); setIsDrawing(true); };
-  const draw = (e) => { if(!isDrawing) return; e.preventDefault(); const {x,y}=getPos(e); const ctx=canvasRef.current.getContext("2d"); ctx.lineTo(x,y); ctx.stroke(); };
-  const endDraw = (e) => { if(!isDrawing) return; e.preventDefault(); setIsDrawing(false); };
+  const startDraw = (e) => {
+    e.preventDefault();
+    const { x, y } = getPos(e);
+    const ctx = canvasRef.current.getContext("2d");
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    setIsDrawing(true);
+  };
+  const draw = (e) => {
+    if (!isDrawing) return;
+    e.preventDefault();
+    const { x, y } = getPos(e);
+    const ctx = canvasRef.current.getContext("2d");
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+  const endDraw = (e) => {
+    if (!isDrawing) return;
+    e.preventDefault();
+    setIsDrawing(false);
+  };
   const clearSig = () => {
-    const c = canvasRef.current; const ctx = c.getContext("2d");
-    ctx.clearRect(0,0,c.width,c.height);
+    const c = canvasRef.current;
+    const ctx = c.getContext("2d");
+    ctx.clearRect(0, 0, c.width, c.height);
   };
 
   const handleSubmit = async () => {
-    if (!isChecked) { alert("Bitte AGB & Datenschutz bestätigen."); return; }
+    if (!isChecked) {
+      alert("Bitte AGB & Datenschutz bestätigen.");
+      return;
+    }
     // simple „leer?“ Prüfung
     const c = canvasRef.current;
     const blank = document.createElement("canvas");
-    blank.width = c.width; blank.height = c.height;
-    if (c.toDataURL() === blank.toDataURL()) { alert("Bitte unterschreiben."); return; }
+    blank.width = c.width;
+    blank.height = c.height;
+    if (c.toDataURL() === blank.toDataURL()) {
+      alert("Bitte unterschreiben.");
+      return;
+    }
 
     setSubmitting(true);
     const signaturePng = c.toDataURL("image/png");
@@ -91,7 +119,9 @@ export default function SignPage() {
   // Anzeige-Werte
   const chosenLabel = optionLabel(summary.selectedOption);
   const chosenCount = optionCount(summary.selectedOption, summary.counts);
-  const countText = Number.isFinite(chosenCount) ? `→ ${chosenCount.toLocaleString()} Bewertungen` : "→ —";
+  const countText = Number.isFinite(chosenCount)
+    ? `→ ${chosenCount.toLocaleString()} Bewertungen`
+    : "→ —";
 
   return (
     <main className="sign-shell">
@@ -103,18 +133,18 @@ export default function SignPage() {
             alt="Sternblitz"
             className="logo"
           />
-          <h1>Auftragsbestätigung <span>Sternblitz</span></h1>
+          <h1>Auftragsbestätigung Sternblitz</h1>
           <p className="lead">
             Hiermit bestätige ich den Auftrag zur Löschung meiner negativen Google-Bewertungen.
           </p>
         </header>
 
-        {/* Highlights */}
-        <ul className="highlights">
-          <li>✔️ Fixpreis: <strong>299 €</strong> (einmalig)</li>
-          <li>✔️ Zahlung erst nach Löschung (von mind. 90 % der Bewertungen)</li>
-          <li>✔️ Dauerhafte Entfernung</li>
-        </ul>
+        {/* Highlights – untereinander */}
+        <section className="highlights">
+          <div className="hl-item">✔️ <strong>Fixpreis: 290 €</strong> (einmalig)</div>
+          <div className="hl-item">✔️ Zahlung erst nach Löschung (von mind. 90 % der Bewertungen)</div>
+          <div className="hl-item">✔️ Dauerhafte Entfernung</div>
+        </section>
 
         {/* Zusammenfassung */}
         <section className="summary">
@@ -136,7 +166,9 @@ export default function SignPage() {
         <section className="signature">
           <div className="sig-head">
             <div className="sig-title">Unterschrift</div>
-            <button type="button" className="ghost" onClick={clearSig}>Löschen</button>
+            <button type="button" className="ghost" onClick={clearSig}>
+              Löschen
+            </button>
           </div>
           <div className="sig-pad">
             <canvas
@@ -152,11 +184,21 @@ export default function SignPage() {
             />
           </div>
           <label className="agree">
-            <input type="checkbox" checked={isChecked} onChange={(e)=>setIsChecked(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={isChecked}
+              onChange={(e) => setIsChecked(e.target.checked)}
+            />
             <span>
               Ich stimme den{" "}
-              <a href="/AGB.pdf" target="_blank" rel="noopener noreferrer">AGB</a> und den{" "}
-              <a href="/Datenschutz.pdf" target="_blank" rel="noopener noreferrer">Datenschutzbestimmungen</a> zu.
+              <a href="/AGB.pdf" target="_blank" rel="noopener noreferrer">
+                AGB
+              </a>{" "}
+              und den{" "}
+              <a href="/Datenschutz.pdf" target="_blank" rel="noopener noreferrer">
+                Datenschutzbestimmungen
+              </a>{" "}
+              zu.
             </span>
           </label>
 
@@ -171,44 +213,50 @@ export default function SignPage() {
       {/* Styles */}
       <style jsx>{`
         :root{
-          --bg: #f7fafc;
-          --card:#ffffff;
-          --ink:#0f172a;
-          --muted:#64748b;
-          --line:#e5e7eb;
-          --pill:#eaf7f0;
+          --bg: #f9fbff;
+          --ink:#0b0b0b;
+          --muted:#475569;
+          --line:#e6eaf1;
           --accent:#22c55e;
           --accent2:#34d399;
           --shadow: 0 24px 60px rgba(2,6,23,.08);
         }
+
+        /* --- Seite: weicher Fade-Gradient (hell, freundlich) --- */
         .sign-shell{
           min-height:100dvh;
           background:
-            radial-gradient(80rem 30rem at 10% -10%, #e8fff3 0%, transparent 60%),
-            radial-gradient(70rem 40rem at 110% -20%, #e6f0ff 0%, transparent 60%),
-            var(--bg);
-          display:flex;align-items:flex-start;justify-content:center;padding:48px 14px;
+            radial-gradient(1200px 600px at -10% -10%, #e8fff3 0%, transparent 60%),
+            radial-gradient(1000px 600px at 110% -20%, #eef4ff 0%, transparent 60%),
+            linear-gradient(180deg, #ffffff 0%, #f7fafc 60%, #ffffff 100%);
+          display:flex;align-items:flex-start;justify-content:center;padding:52px 14px;
         }
-        .card{
-          width:100%;max-width:920px;background:var(--card);border:1px solid var(--line);
-          border-radius:20px;box-shadow:var(--shadow);overflow:hidden;
-        }
-        .header{
-          text-align:center;padding:28px 24px 10px;background:
-            linear-gradient(180deg, #ffffff 0%, #f6fbff 60%, #ffffff 100%);
-        }
-        .logo{height:48px;width:auto;margin-bottom:10px;object-fit:contain}
-        h1{margin:0;font-size:28px;color:var(--ink);font-weight:800}
-        h1 span{color:#0b6cf2}
-        .lead{margin:8px auto 0;max-width:660px;color:var(--muted)}
 
-        .highlights{
-          display:flex;gap:12px;flex-wrap:wrap;justify-content:center;
-          margin:16px auto 10px;padding:0 20px 0;list-style:none;
+        .card{
+          width:100%;max-width:940px;background:#ffffff;border:1px solid var(--line);
+          border-radius:22px;box-shadow:var(--shadow);overflow:hidden;
         }
-        .highlights li{
-          background:#f8fafc;border:1px solid var(--line);border-radius:999px;
-          padding:8px 12px;font-weight:600;color:#0a0a0a;
+
+        .header{
+          text-align:center;padding:30px 24px 14px;
+          background: linear-gradient(180deg,#ffffff 0%, #fbfdff 70%, #ffffff 100%);
+        }
+
+        /* Logo größer */
+        .logo{height:72px;width:auto;margin-bottom:14px;object-fit:contain}
+        @media (max-width:800px){ .logo{height:56px} }
+
+        /* Titel komplett schwarz */
+        h1{margin:0;font-size:30px;color:var(--ink);font-weight:900;letter-spacing:.2px}
+        .lead{margin:10px auto 0;max-width:720px;color:var(--muted);font-size:16px}
+
+        /* Highlights untereinander (Kartenlook) */
+        .highlights{
+          display:flex;flex-direction:column;gap:10px;max-width:760px;margin:16px auto 6px;padding:0 20px;
+        }
+        .hl-item{
+          background:#f8fafc;border:1px solid var(--line);border-radius:12px;
+          padding:10px 12px;font-weight:700;color:var(--ink);
         }
 
         .summary{padding:16px 20px 6px}
@@ -217,15 +265,16 @@ export default function SignPage() {
           background:linear-gradient(135deg,#f7fff9 0%, #ffffff 60%);
           border:1px solid var(--line);border-radius:14px;padding:12px 14px;
         }
-        .label{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
-        .value{margin-top:4px;color:var(--ink);font-weight:700}
-        .count{margin-left:8px;color:#0b6cf2;font-weight:800}
+        .label{font-size:12px;color:#6b7280;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+        .value{margin-top:4px;color:var(--ink);font-weight:800}
+        .count{margin-left:8px;color:#0b6cf2;font-weight:900}
 
-        .signature{padding:16px 20px 24px}
+        .signature{padding:18px 20px 26px}
         .sig-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-        .sig-title{font-size:16px;font-weight:800;color:var(--ink)}
+        .sig-title{font-size:16px;font-weight:900;color:var(--ink)}
         .ghost{
-          background:transparent;border:1px solid var(--line);color:#0f172a;border-radius:10px;padding:6px 10px;font-weight:700;cursor:pointer;
+          background:transparent;border:1px solid var(--line);color:var(--ink);
+          border-radius:10px;padding:6px 10px;font-weight:800;cursor:pointer;
         }
         .ghost:hover{background:#f8fafc}
         .sig-pad{
@@ -238,11 +287,15 @@ export default function SignPage() {
 
         .agree{display:flex;gap:10px;align-items:flex-start;margin:12px 0 0;color:var(--ink)}
         .agree a{color:#0b6cf2;text-decoration:underline}
-        .actions{display:flex;justify-content:center;margin-top:18px}
+
+        .actions{display:flex;justify-content:center;margin-top:20px}
         .confirm{
           display:inline-flex;align-items:center;gap:10px;padding:14px 22px;border-radius:999px;border:1px solid #16a34a;
-          background:linear-gradient(135deg, var(--accent2) 0%, var(--accent) 100%);color:#ffffff;font-weight:800;letter-spacing:.2px;
-          box-shadow:0 16px 36px rgba(34,197,94,.35);transition:transform .12s, box-shadow .18s, filter .18s;
+          background:linear-gradient(135deg, var(--accent2) 0%, var(--accent) 100%);
+          color:#0b0b0b;                         /* << Text schwarz */
+          font-weight:900;letter-spacing:.2px;
+          box-shadow:0 16px 36px rgba(34,197,94,.35);
+          transition:transform .12s, box-shadow .18s, filter .18s;
         }
         .confirm:hover{transform:translateY(-1px);filter:brightness(1.03);box-shadow:0 22px 44px rgba(34,197,94,.45)}
         .confirm:active{transform:translateY(0);filter:brightness(.98)}
@@ -250,7 +303,7 @@ export default function SignPage() {
 
         @media (max-width:800px){
           .row{grid-template-columns:1fr}
-          .header{padding:22px 16px 6px}
+          .header{padding:24px 16px 10px}
           .summary,.signature{padding:14px 14px 20px}
         }
       `}</style>
