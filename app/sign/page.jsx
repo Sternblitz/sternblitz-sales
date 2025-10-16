@@ -222,44 +222,61 @@ export default function SignPage() {
     --shadow:0 24px 60px rgba(2,6,23,.08);
   }
 
-  /* --- Hintergrund mit sichtbarem Fade + leichtem Farbverlauf --- */
+  /* 🌈 Lebendiger, farbiger Hintergrund */
   .sign-shell{
     min-height:100dvh;
     background:
-      radial-gradient(1600px 900px at -10% -10%, rgba(182,242,205,0.35) 0%, transparent 70%),
-      radial-gradient(1400px 800px at 120% -10%, rgba(188,214,255,0.35) 0%, transparent 70%),
-      linear-gradient(180deg, #f9fbff 0%, #f3f9f6 60%, #ffffff 100%);
-    display:flex;align-items:flex-start;justify-content:center;
+      radial-gradient(1200px 700px at -10% -20%, rgba(99,180,255,0.55) 0%, transparent 70%),
+      radial-gradient(1100px 700px at 120% -10%, rgba(255,164,231,0.5) 0%, transparent 70%),
+      radial-gradient(1400px 800px at 50% 110%, rgba(156,255,220,0.45) 0%, transparent 70%),
+      linear-gradient(180deg, #ffffff 0%, #f7faff 50%, #ffffff 100%);
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
     padding:52px 14px;
+    background-attachment: fixed;
   }
 
   .card{
-    width:100%;max-width:940px;background:#ffffff;
+    width:100%;
+    max-width:940px;
+    background:#ffffffcc;
+    backdrop-filter: blur(16px);
     border:1px solid var(--line);
-    border-radius:22px;box-shadow:var(--shadow);overflow:hidden;
+    border-radius:22px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
   }
 
-  .header{text-align:center;padding:30px 24px 14px;
-    background:linear-gradient(180deg,#ffffff 0%, #fbfdff 70%, #ffffff 100%);
-  }
+  .header{text-align:center;padding:30px 24px 14px;}
   .logo{height:72px;width:auto;margin-bottom:14px;object-fit:contain}
   h1{margin:0;font-size:30px;color:var(--ink);font-weight:900;letter-spacing:.2px}
   .lead{margin:10px auto 0;max-width:720px;color:var(--muted);font-size:16px}
 
   .highlights{
-    display:flex;flex-direction:column;gap:10px;
-    max-width:760px;margin:16px auto 6px;padding:0 20px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    max-width:760px;
+    margin:16px auto 6px;
+    padding:0 20px;
   }
   .hl-item{
-    background:#f8fafc;border:1px solid var(--line);border-radius:12px;
-    padding:10px 12px;font-weight:700;color:var(--ink);
+    background:linear-gradient(90deg, rgba(240,248,255,0.9) 0%, rgba(255,255,255,0.8) 100%);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:10px 12px;
+    font-weight:700;
+    color:var(--ink);
   }
 
   .summary{padding:16px 20px 6px}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .item{
-    background:linear-gradient(135deg,#f7fff9 0%, #ffffff 60%);
-    border:1px solid var(--line);border-radius:14px;padding:12px 14px;
+    background:linear-gradient(135deg,#f8fff9 0%, #ffffff 60%);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:12px 14px;
   }
   .label{font-size:12px;color:#6b7280;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
   .value{margin-top:4px;color:var(--ink);font-weight:800}
@@ -269,33 +286,63 @@ export default function SignPage() {
   .sig-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
   .sig-title{font-size:16px;font-weight:900;color:var(--ink)}
   .ghost{
-    background:transparent;border:1px solid var(--line);color:var(--ink);
-    border-radius:10px;padding:6px 10px;font-weight:800;cursor:pointer;
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--ink);
+    border-radius:10px;
+    padding:6px 10px;
+    font-weight:800;
+    cursor:pointer;
   }
   .ghost:hover{background:#f8fafc}
   .sig-pad{
-    border:1px dashed #cbd5e1;border-radius:14px;background:#fff;
-    padding:12px;display:flex;justify-content:center;align-items:center;
+    border:1px dashed #cbd5e1;
+    border-radius:14px;
+    background:#fff;
+    padding:12px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
   }
   .canvas{
-    width:100%;max-width:500px;height:220px;border:2px solid #e5e7eb;
-    border-radius:12px;background:#fff;touch-action:none;
+    width:100%;
+    max-width:500px;
+    height:220px;
+    border:2px solid #e5e7eb;
+    border-radius:12px;
+    background:#fff;
+    touch-action:none;
   }
 
-  .agree{display:flex;gap:10px;align-items:flex-start;margin:12px 0 0;color:var(--ink)}
+  .agree{
+    display:flex;
+    gap:10px;
+    align-items:flex-start;
+    margin:12px 0 0;
+    color:var(--ink);
+  }
   .agree a{color:#0b6cf2;text-decoration:underline}
 
   .actions{display:flex;justify-content:center;margin-top:20px}
   .confirm{
-    display:inline-flex;align-items:center;gap:10px;
-    padding:14px 22px;border-radius:999px;border:1px solid #16a34a;
+    display:inline-flex;
+    align-items:center;
+    gap:10px;
+    padding:14px 22px;
+    border-radius:999px;
+    border:1px solid #16a34a;
     background:linear-gradient(135deg,var(--accent2) 0%,var(--accent) 100%);
-    color:#0b0b0b;font-weight:900;letter-spacing:.2px;
+    color:#0b0b0b;
+    font-weight:900;
+    letter-spacing:.2px;
     box-shadow:0 16px 36px rgba(34,197,94,.35);
     transition:transform .12s, box-shadow .18s, filter .18s;
   }
-  .confirm:hover{transform:translateY(-1px);filter:brightness(1.03);
-    box-shadow:0 22px 44px rgba(34,197,94,.45)}
+  .confirm:hover{
+    transform:translateY(-1px);
+    filter:brightness(1.03);
+    box-shadow:0 22px 44px rgba(34,197,94,.45);
+  }
   .confirm:active{transform:translateY(0);filter:brightness(.98)}
   .confirm:disabled{opacity:.6;cursor:not-allowed}
 
