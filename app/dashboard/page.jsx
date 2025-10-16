@@ -416,22 +416,19 @@ export default function DashboardPage() {
           --shadow-soft:0 16px 36px rgba(2,6,23,.08);
           --blue:#0b6cf2;
         }
-
-/* Seiten-Gradient HINTER alles, auch dem Live-Simulator */
+/* 1) Keep the page gradient truly behind everything */
 .shell{
   min-height:100dvh;
   padding:0 14px 80px;
-  position: relative;   /* Referenz für ::before */
-  z-index: 0;           /* wichtig, damit ::before mit z-index:-1 dahinter liegen kann */
-  /* KEIN isolation:isolate und KEIN eigener background hier */
+  position: relative;
+  z-index: 0;            /* allows ::before to sit at -1 */
+  background: transparent;
 }
-
-/* Der eigentliche Verlauf – fix an die Viewport-Kanten, z-index:-1 */
 .shell::before{
   content:"";
-  position: fixed;      /* statt absolute -> deckt die ganze Seite ab */
+  position: fixed;       /* cover the full viewport */
   inset:0;
-  z-index:-1;           /* liegt hinter ALLEN .shell-Kindern */
+  z-index:-1;            /* real back layer */
   pointer-events:none;
   background:
     radial-gradient(1200px 600px at 12% 0%, rgba(216,231,219,.95) 0%, rgba(216,231,219,.12) 60%),
@@ -439,9 +436,24 @@ export default function DashboardPage() {
     linear-gradient(180deg, #f3f9ff 0%, #ffffff 60%, #ffffff 100%);
 }
 
-/* Kinder bleiben unverändert oben drüber */
-.shell > *{
-  position: relative;   /* reicht aus, z-index nicht nötig */
+/* 2) Make the Live-Simulator render on an opaque base (no tinting) */
+/* These class names exist in your LiveSimulator code */
+.review-container{
+  position: relative;
+  border-radius: 16px;                 /* keep your rounded box */
+  background-color: #fff;              /* <- opaque base under its gradient */
+  /* keep the simulator’s own gradient background as-is in its own CSS */
+}
+
+/* If the gradient of the simulator sits on a child element instead,
+   ensure that child does NOT override the white base to transparent. */
+.review-card{
+  background-color: transparent;       /* its gradient can stay translucent */
+}
+
+/* Optional: add a subtle shadow to separate the simulator panel from the page gradient */
+.review-container{
+  box-shadow: 0 24px 60px rgba(2,6,23,.10);
 }
 
         .sb-wrap{max-width:1208px;margin:0 auto;}
