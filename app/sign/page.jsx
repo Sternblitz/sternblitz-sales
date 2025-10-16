@@ -211,24 +211,24 @@ export default function SignPage() {
       </div>
 
       {/* Styles */}
-     <style jsx>{`
+    <style jsx>{`
   :root{
     --bg:#ffffff;
     --ink:#0b0b0b;
     --muted:#475569;
     --line:#e6eaf1;
-    --accent:#22c55e;
-    --accent2:#34d399;
+    --accent:#b5d0bb;
+    --accent2:#d8e7db;
     --shadow:0 24px 60px rgba(2,6,23,.08);
   }
 
-  /* 🌈 Intensiver, satter Farbverlauf */
+  /* 🌿 Farbiger, aber sanfter Gradient mit #d8e7db als Grundton */
   .sign-shell{
     min-height:100dvh;
     background:
-      radial-gradient(1200px 700px at -10% -20%, rgba(99,180,255,0.8) 0%, transparent 70%),
-      radial-gradient(1100px 700px at 120% -10%, rgba(255,164,231,0.75) 0%, transparent 70%),
-      radial-gradient(1400px 800px at 50% 110%, rgba(156,255,220,0.75) 0%, transparent 70%),
+      radial-gradient(1200px 700px at -10% -20%, rgba(99,180,255,0.65) 0%, transparent 70%),
+      radial-gradient(1100px 700px at 120% -10%, rgba(255,164,231,0.55) 0%, transparent 70%),
+      radial-gradient(1400px 800px at 50% 110%, rgba(216,231,219,0.85) 0%, transparent 70%),
       linear-gradient(180deg, #f9fbff 0%, #f3f9f6 50%, #ffffff 100%);
     display:flex;
     align-items:flex-start;
@@ -240,11 +240,11 @@ export default function SignPage() {
   .card{
     width:100%;
     max-width:940px;
-    background:rgba(255,255,255,0.85);
-    backdrop-filter: blur(22px) saturate(180%);
+    background:rgba(255,255,255,0.9);
+    backdrop-filter: blur(18px) saturate(160%);
     border:1px solid var(--line);
     border-radius:22px;
-    box-shadow:0 30px 70px rgba(10,20,50,0.1);
+    box-shadow:0 30px 70px rgba(10,20,50,0.08);
     overflow:hidden;
     transition:all 0.3s ease;
   }
@@ -263,19 +263,19 @@ export default function SignPage() {
     padding:0 20px;
   }
   .hl-item{
-    background:linear-gradient(90deg, rgba(234,247,255,0.95) 0%, rgba(255,255,255,0.9) 100%);
-    border:1px solid rgba(220,230,255,0.6);
+    background:linear-gradient(90deg, rgba(216,231,219,0.3) 0%, rgba(255,255,255,0.85) 100%);
+    border:1px solid rgba(200,220,205,0.6);
     border-radius:12px;
     padding:10px 12px;
     font-weight:700;
     color:var(--ink);
-    box-shadow:0 4px 10px rgba(150,170,255,0.15);
+    box-shadow:0 4px 10px rgba(160,190,170,0.15);
   }
 
   .summary{padding:16px 20px 6px}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .item{
-    background:linear-gradient(135deg,#edfff5 0%, #ffffff 60%);
+    background:linear-gradient(135deg,#f6fbf7 0%, #ffffff 60%);
     border:1px solid var(--line);
     border-radius:14px;
     padding:12px 14px;
@@ -332,18 +332,18 @@ export default function SignPage() {
     gap:10px;
     padding:14px 22px;
     border-radius:999px;
-    border:1px solid #16a34a;
-    background:linear-gradient(135deg,var(--accent2) 0%,var(--accent) 100%);
+    border:1px solid #a6c6ad;
+    background:linear-gradient(135deg,#e8f1ea 0%, #d8e7db 100%);
     color:#0b0b0b;
     font-weight:900;
     letter-spacing:.2px;
-    box-shadow:0 16px 36px rgba(34,197,94,.45);
+    box-shadow:0 16px 36px rgba(160,190,170,.35);
     transition:transform .12s, box-shadow .18s, filter .18s;
   }
   .confirm:hover{
     transform:translateY(-1px);
-    filter:brightness(1.05);
-    box-shadow:0 22px 50px rgba(34,197,94,.55);
+    filter:brightness(1.04);
+    box-shadow:0 22px 50px rgba(160,190,170,.45);
   }
   .confirm:active{transform:translateY(0);filter:brightness(.98)}
   .confirm:disabled{opacity:.6;cursor:not-allowed}
