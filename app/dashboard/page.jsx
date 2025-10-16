@@ -455,24 +455,6 @@ export default function DashboardPage() {
 .review-container{
   box-shadow: 0 24px 60px rgba(2,6,23,.10);
 }
-/* sorgt wieder für die weiße Box hinter dem Input im Live-Simulator */
-.review-container {
-  position: relative;
-  background: #fff;             /* deckt die Fläche wieder weiß ab */
-  border-radius: 16px;          /* gleichmäßig rund */
-  box-shadow: 0 20px 50px rgba(0,0,0,0.08); /* leicht angehoben */
-}
-
-/* optional: falls der Input selbst transparent ist, bleibt er sauber */
-.review-container input {
-  background: #fff;
-}
-
-/* falls der Simulator einen inneren Wrapper nutzt (z. B. .review-card),
-   stell sicher, dass der keine Hintergrundfarbe überschreibt */
-.review-card {
-  background: transparent;
-}
 
         .sb-wrap{max-width:1208px;margin:0 auto;}
 
