@@ -433,12 +433,33 @@ export default function DashboardPage() {
         .actions.roomy{margin-top:22px}
 
         .submit-btn.next{
-          display:inline-flex;align-items:center;gap:10px;padding:14px 22px;border-radius:999px;border:1px solid #16a34a;
-          background:linear-gradient(135deg,#34d399 0%,#22c55e 100%);color:#ffffff;font-weight:800;letter-spacing:.2px;
-          box-shadow:0 12px 28px rgba(34,197,94,.35);transition:transform .12s, box-shadow .18s, filter .18s;
-        }
-        .submit-btn.next:hover{transform:translateY(-1px);filter:brightness(1.03);box-shadow:0 16px 36px rgba(34,197,94,.45)}
-        .submit-btn.next:active{transform:translateY(0);filter:brightness(.98);box-shadow:0 8px 18px rgba(34,197,94,.35)}
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:16px 26px;              /* gern etwas größer */
+  border-radius:999px;
+  border:1px solid #0b0b0b;       /* schwarz */
+  background:#0b0b0b;             /* schwarz */
+  color:#ffffff;                  /* Text weiß */
+  font-weight:800;
+  letter-spacing:.2px;
+  box-shadow:0 12px 28px rgba(0,0,0,.25);
+  transition:transform .12s, box-shadow .18s, background .18s, filter .18s;
+}
+.submit-btn.next:hover{
+  transform:translateY(-1px);
+  background:#111;                /* etwas heller beim Hover */
+  box-shadow:0 16px 36px rgba(0,0,0,.35);
+}
+.submit-btn.next:active{
+  transform:translateY(0);
+  filter:brightness(.98);
+  box-shadow:0 8px 18px rgba(0,0,0,.25);
+}
+.submit-btn.next:focus-visible{
+  outline:none;
+  box-shadow:0 0 0 3px rgba(0,0,0,.35), 0 12px 28px rgba(0,0,0,.25);
+}
         .submit-btn.next .label{font-size:16px}
 
         @media (max-width:820px){
