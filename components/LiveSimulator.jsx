@@ -463,7 +463,22 @@ export default function LiveSimulator() {
           .rating-text{font-size:16px}
           #bad-count::after{width:140%;height:15px}
         }
+/* Karte direkt hinter dem Suchfeld wieder aktivieren */
+.review-card{
+  position: relative;
+  background: #ffffff !important;          /* erzwingt Weiß */
+  border: 1px solid rgba(15,23,42,.06);
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(2,6,23,.10);
+  padding: 40px;                            /* wie vorher */
+  max-width: 755px;
+  margin: 40px auto 0;
+  z-index: 3;                                /* über dem Seiten-Gradient */
+  isolation: isolate;                        /* eigener Stacking-Context */
+}
 
+/* Falls der Seitenverlauf via ::before kommt, sicher darunter halten */
+.shell::before { z-index: 0; }
       `}</style>
     </>
   );
