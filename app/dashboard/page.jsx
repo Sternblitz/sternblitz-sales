@@ -383,7 +383,7 @@ export default function DashboardPage() {
         .primary-btn.blast .rocket{transform:translateY(-18px) translateX(6px) rotate(-12deg) scale(1.08)}
         @keyframes pulseBtn{0%{transform:scale(.995)}50%{transform:scale(1)}100%{transform:scale(.995)}}
 
-        .drawer{max-width:900px;margin:20px auto 0;background:linear-gradient(135deg,#e6f6ea 0%,#ffffff 80%);
+        .drawer{max-width:900px;margin:20px auto 0;background:linear-gradient(135deg,#d8e7db 0%,#ffffff 80%);
           border:1px solid rgba(0,0,0,.06);border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.1);
           opacity:0;transform:translateY(-6px);transition:all .28s ease;pointer-events:none}
         .drawer.open{opacity:1;transform:translateY(0);pointer-events:auto}
