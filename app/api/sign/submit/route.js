@@ -105,7 +105,7 @@ export async function POST(req) {
     // Upload zu Supabase Storage (Server-Client!)
     const sb = supabaseAdmin();
     const fileNameSafe = (firstName || "kunde").replace(/[^\w-]+/g, "_");
-    const fileName = `contracts/${Date.now()}_${fileNameSafe}.pdf`;
+    const fileName = `${Date.now()}_${safe}.pdf`;
 
     // Supabase akzeptiert ArrayBuffer/Uint8Array/Blob/Buffer – hier Buffer für Node:
     const buffer = Buffer.from(pdfBytes);
