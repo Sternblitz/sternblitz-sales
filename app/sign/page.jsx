@@ -199,25 +199,38 @@ export default function SignPage() {
     setEditOptionOpen(false);
   };
 
-  const submit = async () => {
-    if (!agree) {
-      alert("Bitte AGB & Datenschutz bestätigen.");
-      return;
-    }
-    const c = canvasRef.current;
-    const blank = document.createElement("canvas");
-    blank.width = c.width;
-    blank.height = c.height;
-    if (c.toDataURL() === blank.toDataURL()) {
-      alert("Bitte unterschreiben.");
-      return;
-    }
-    setSaving(true);
-    const signaturePng = c.toDataURL("image/png");
-    console.log("Signature(base64)…", signaturePng.slice(0, 48) + "…");
-    alert("Unterschrift erfasst! (PDF & Versand folgen im nächsten Schritt)");
-    setSaving(false);
-  };
+ const submit = async () => {
+  if (!agree) return alert("Bitte AGB & Datenschutz bestätigen.");
+
+  const c = canvasRef.current;
+  const blank = document.createElement("canvas");
+  blank.width = c.width; blank.height = c.height;
+  if (c.toDataURL() === blank.toDataURL()) {
+    return alert("Bitte unterschreiben.");
+  }
+
+  setSaving(true);
+
+  const signaturePng = c.toDataURL("image/png");
+  const payload = JSON.parse(sessionStorage.getItem("sb_checkout_payload") || "{}");
+
+  const res = await fetch("/api/sign/submit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...payload, signaturePng }),
+  });
+
+  const json = await res.json();
+  setSaving(false);
+
+  if (!res.ok) return alert(json.error || "Fehler beim Speichern");
+
+  if (json.pdfUrl) {
+    window.open(json.pdfUrl, "_blank");
+  } else {
+    alert("PDF erfolgreich erstellt!");
+  }
+};
 
   // Anzeige
   const chosenLabel = optionLabel(summary.selectedOption);
