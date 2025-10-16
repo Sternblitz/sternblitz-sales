@@ -4,14 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import Script from "next/script";
 
 export default function SignPage() {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  // ===== Canvas (Signatur) =====
+  const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
+  // ===== Daten aus Step 1 =====
   const [summary, setSummary] = useState({
     googleProfile: "",
     googleUrl: "",
     selectedOption: "",
-    counts: { c123: null as number | null, c12: null as number | null, c1: null as number | null },
+    counts: { c123: null, c12: null, c1: null },
     company: "",
     firstName: "",
     lastName: "",
@@ -19,13 +21,15 @@ export default function SignPage() {
     phone: "",
   });
 
+  // UI
   const [agree, setAgree] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editProfile, setEditProfile] = useState(false);
   const [editContact, setEditContact] = useState(false);
   const [editOptionOpen, setEditOptionOpen] = useState(false);
 
-  const formGoogleInputRef = useRef<HTMLInputElement | null>(null);
+  // Drafts
+  const formGoogleInputRef = useRef(null);
   const [googleField, setGoogleField] = useState("");
   const [contactDraft, setContactDraft] = useState({
     company: "",
@@ -35,10 +39,11 @@ export default function SignPage() {
     phone: "",
   });
 
-  const optionLabel = (opt: string) =>
-    ({ "123": "1–3 ⭐", "12": "1–2 ⭐", "1": "1 ⭐", custom: "Individuell" } as any)[opt] || "—";
+  // ===== Helpers =====
+  const optionLabel = (opt) =>
+    ({ "123": "1–3 ⭐", "12": "1–2 ⭐", "1": "1 ⭐", custom: "Individuell" }[opt] || "—");
 
-  const optionCount = (opt: string, c?: { c123: number | null; c12: number | null; c1: number | null } | null) => {
+  const optionCount = (opt, c) => {
     if (!c) return null;
     if (opt === "123") return c.c123;
     if (opt === "12") return c.c12;
@@ -46,9 +51,9 @@ export default function SignPage() {
     return null;
   };
 
-  const fmtCount = (n: number | null) =>
-    Number.isFinite(n as number) ? `→ ${Number(n).toLocaleString()} Bewertungen` : "→ —";
+  const fmtCount = (n) => (Number.isFinite(n) ? `→ ${Number(n).toLocaleString()} Bewertungen` : "→ —");
 
+  // ===== Session laden =====
   useEffect(() => {
     try {
       const p = JSON.parse(sessionStorage.getItem("sb_checkout_payload") || "{}");
@@ -75,27 +80,30 @@ export default function SignPage() {
     } catch {}
   }, []);
 
+  // ===== Canvas Setup =====
   useEffect(() => {
     const c = canvasRef.current;
     if (!c) return;
     const ratio = Math.max(window.devicePixelRatio || 1, 1);
-    const cssW = 760;
+    const cssW = 760; // etwas schmaler
     const cssH = 260;
     c.style.width = cssW + "px";
     c.style.height = cssH + "px";
     c.width = cssW * ratio;
     c.height = cssH * ratio;
-    const ctx = c.getContext("2d")!;
+    const ctx = c.getContext("2d");
     ctx.scale(ratio, ratio);
     ctx.lineWidth = 2.4;
     ctx.lineCap = "round";
     ctx.strokeStyle = "#0f172a";
   }, []);
 
+  // ===== Google Places (Profil-Edit) =====
   const initPlaces = () => {
     try {
-      const g = (window as any).google;
+      const g = window.google;
       if (!g?.maps?.places || !formGoogleInputRef.current) return;
+      // pro Sichtbarkeit neu initialisieren – verhindert „kein Autocomplete“
       const ac = new g.maps.places.Autocomplete(formGoogleInputRef.current, {
         types: ["establishment"],
         fields: ["name", "formatted_address", "url", "place_id"],
@@ -119,50 +127,56 @@ export default function SignPage() {
     } catch {}
   };
 
-  const onPlacesLoad = () => initPlaces();
-
+  // Script lädt → init
+  const onPlacesLoad = () => {
+    initPlaces();
+  };
+  // jedes Mal beim Öffnen des Edit-Felds → init (wichtig!)
   useEffect(() => {
     if (editProfile) {
+      // kleines Timeout, bis das Input im DOM ist
       const t = setTimeout(() => initPlaces(), 30);
       return () => clearTimeout(t);
     }
   }, [editProfile]);
 
-  const getPos = (e: any) => {
-    const rect = canvasRef.current!.getBoundingClientRect();
+  // ===== Zeichnen =====
+  const getPos = (e) => {
+    const rect = canvasRef.current.getBoundingClientRect();
     if (e.touches && e.touches[0]) {
       const t = e.touches[0];
       return { x: t.clientX - rect.left, y: t.clientY - rect.top };
     }
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
-  const start = (e: any) => {
+  const start = (e) => {
     e.preventDefault();
     const { x, y } = getPos(e);
-    const ctx = canvasRef.current!.getContext("2d")!;
+    const ctx = canvasRef.current.getContext("2d");
     ctx.beginPath();
     ctx.moveTo(x, y);
     setIsDrawing(true);
   };
-  const move = (e: any) => {
+  const move = (e) => {
     if (!isDrawing) return;
     e.preventDefault();
     const { x, y } = getPos(e);
-    const ctx = canvasRef.current!.getContext("2d")!;
+    const ctx = canvasRef.current.getContext("2d");
     ctx.lineTo(x, y);
     ctx.stroke();
   };
-  const end = (e: any) => {
+  const end = (e) => {
     if (!isDrawing) return;
     e.preventDefault();
     setIsDrawing(false);
   };
   const clearSig = () => {
-    const c = canvasRef.current!;
-    const ctx = c.getContext("2d")!;
+    const c = canvasRef.current;
+    const ctx = c.getContext("2d");
     ctx.clearRect(0, 0, c.width, c.height);
   };
 
+  // ===== Aktionen =====
   const saveContact = () => {
     setSummary((s) => ({ ...s, ...contactDraft }));
     try {
@@ -174,7 +188,7 @@ export default function SignPage() {
     setEditContact(false);
   };
 
-  const changeOption = (val: string) => {
+  const changeOption = (val) => {
     setSummary((s) => ({ ...s, selectedOption: val }));
     try {
       const raw = sessionStorage.getItem("sb_checkout_payload") || "{}";
@@ -190,7 +204,7 @@ export default function SignPage() {
       alert("Bitte AGB & Datenschutz bestätigen.");
       return;
     }
-    const c = canvasRef.current!;
+    const c = canvasRef.current;
     const blank = document.createElement("canvas");
     blank.width = c.width;
     blank.height = c.height;
@@ -205,9 +219,10 @@ export default function SignPage() {
     setSaving(false);
   };
 
+  // Anzeige
   const chosenLabel = optionLabel(summary.selectedOption);
   const chosenCount = optionCount(summary.selectedOption, summary.counts);
-  const countText = fmtCount(chosenCount as any);
+  const countText = fmtCount(chosenCount);
 
   return (
     <main className="shell">
@@ -217,7 +232,7 @@ export default function SignPage() {
         onLoad={onPlacesLoad}
       />
 
-      {/* HERO */}
+      {/* HERO – schmaler */}
       <section className="card card-hero">
         <div className="hero-head">
           <img
@@ -226,17 +241,15 @@ export default function SignPage() {
             alt="Sternblitz"
           />
         </div>
-        <h1>
-          Auftragsbestätigung <b>Sternblitz</b>
-        </h1>
-        <p className="lead">Hiermit bestätige ich den Auftrag zur Löschung meiner negativen Google-Bewertungen.</p>
+        <h1>Auftragsbestätigung <b>Sternblitz</b></h1>
+        <p className="lead">
+          Hiermit bestätige ich den Auftrag zur Löschung meiner negativen Google-Bewertungen.
+        </p>
 
         <div className="bullets">
           <div className="bullet">
             <span className="tick">✅</span>
-            <span>
-              Fixpreis: <b>299 €</b> (einmalig)
-            </span>
+            <span>Fixpreis: <b>299 €</b> (einmalig)</span>
           </div>
           <div className="bullet">
             <span className="tick">✅</span>
@@ -249,8 +262,9 @@ export default function SignPage() {
         </div>
       </section>
 
-      {/* GRID */}
+      {/* GRID: Profil + Option */}
       <section className="grid-2">
+        {/* Google-Profil */}
         <div className="card with-bar green">
           <div className="bar">
             <span>Google-Profil</span>
@@ -271,9 +285,7 @@ export default function SignPage() {
             <div className="content">
               <div className="value">{summary.googleProfile || "—"}</div>
               {summary.googleUrl ? (
-                <a className="open" href={summary.googleUrl} target="_blank" rel="noreferrer">
-                  Profil öffnen ↗
-                </a>
+                <a className="open" href={summary.googleUrl} target="_blank" rel="noreferrer">Profil öffnen ↗</a>
               ) : null}
             </div>
           ) : (
@@ -288,14 +300,7 @@ export default function SignPage() {
                 className="text"
               />
               <div className="row-actions">
-                <button
-                  type="button"
-                  className="btn ghost"
-                  onClick={() => {
-                    setEditProfile(false);
-                    setGoogleField(summary.googleProfile || "");
-                  }}
-                >
+                <button type="button" className="btn ghost" onClick={() => { setEditProfile(false); setGoogleField(summary.googleProfile || ""); }}>
                   Abbrechen
                 </button>
                 <button
@@ -319,10 +324,16 @@ export default function SignPage() {
           )}
         </div>
 
+        {/* Zu löschende Bewertungen */}
         <div className="card with-bar blue">
           <div className="bar">
             <span>Zu löschende Bewertungen</span>
-            <button type="button" className="icon-btn" onClick={() => setEditOptionOpen(true)} title="Bewertungs-Option ändern">
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => setEditOptionOpen(true)}
+              title="Bewertungs-Option ändern"
+            >
               ✏️
             </button>
           </div>
@@ -335,7 +346,7 @@ export default function SignPage() {
         </div>
       </section>
 
-      {/* Option-Auswahl */}
+      {/* Option-Auswahl (Modal) */}
       {editOptionOpen && (
         <div className="modal" onClick={() => setEditOptionOpen(false)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
@@ -364,76 +375,50 @@ export default function SignPage() {
         </div>
       )}
 
-      {/* Kontakt-Übersicht */}
+      {/* Kontakt-Übersicht – Google Gelb/Orange */}
       <section className="card with-bar yellow">
         <div className="bar">
           <span>Kontakt-Übersicht</span>
-          <button className="icon-btn" type="button" onClick={() => setEditContact((v) => !v)} title="Kontaktdaten bearbeiten">
+          <button
+            className="icon-btn"
+            type="button"
+            onClick={() => setEditContact((v) => !v)}
+            title="Kontaktdaten bearbeiten"
+          >
             ✏️
           </button>
         </div>
 
         {!editContact ? (
           <div className="contact-grid readonly">
-            <div>
-              <b>Firma:</b> {summary.company || "—"}
-            </div>
-            <div>
-              <b>Vorname:</b> {summary.firstName || "—"}
-            </div>
-            <div>
-              <b>Nachname:</b> {summary.lastName || "—"}
-            </div>
-            <div>
-              <b>E-Mail:</b> {summary.email || "—"}
-            </div>
-            <div>
-              <b>Telefon:</b> {summary.phone || "—"}
-            </div>
+            <div><b>Firma:</b> {summary.company || "—"}</div>
+            <div><b>Vorname:</b> {summary.firstName || "—"}</div>
+            <div><b>Nachname:</b> {summary.lastName || "—"}</div>
+            <div><b>E-Mail:</b> {summary.email || "—"}</div>
+            <div><b>Telefon:</b> {summary.phone || "—"}</div>
           </div>
         ) : (
           <>
             <div className="contact-grid">
-              <label>
-                <span>Firma</span>
-                <input value={contactDraft.company} onChange={(e) => setContactDraft((d) => ({ ...d, company: e.target.value }))} />
-              </label>
-              <label>
-                <span>Vorname</span>
-                <input value={contactDraft.firstName} onChange={(e) => setContactDraft((d) => ({ ...d, firstName: e.target.value }))} />
-              </label>
-              <label>
-                <span>Nachname</span>
-                <input value={contactDraft.lastName} onChange={(e) => setContactDraft((d) => ({ ...d, lastName: e.target.value }))} />
-              </label>
-              <label>
-                <span>E-Mail</span>
-                <input type="email" value={contactDraft.email} onChange={(e) => setContactDraft((d) => ({ ...d, email: e.target.value }))} />
-              </label>
-              <label>
-                <span>Telefon</span>
-                <input value={contactDraft.phone} onChange={(e) => setContactDraft((d) => ({ ...d, phone: e.target.value }))} />
-              </label>
+              <label><span>Firma</span><input value={contactDraft.company} onChange={(e) => setContactDraft((d) => ({ ...d, company: e.target.value }))} /></label>
+              <label><span>Vorname</span><input value={contactDraft.firstName} onChange={(e) => setContactDraft((d) => ({ ...d, firstName: e.target.value }))} /></label>
+              <label><span>Nachname</span><input value={contactDraft.lastName} onChange={(e) => setContactDraft((d) => ({ ...d, lastName: e.target.value }))} /></label>
+              <label><span>E-Mail</span><input type="email" value={contactDraft.email} onChange={(e) => setContactDraft((d) => ({ ...d, email: e.target.value }))} /></label>
+              <label><span>Telefon</span><input value={contactDraft.phone} onChange={(e) => setContactDraft((d) => ({ ...d, phone: e.target.value }))} /></label>
             </div>
             <div className="row-actions">
-              <button className="btn ghost" type="button" onClick={() => setEditContact(false)}>
-                Abbrechen
-              </button>
-              <button className="btn solid" type="button" onClick={saveContact}>
-                Speichern
-              </button>
+              <button className="btn ghost" type="button" onClick={() => setEditContact(false)}>Abbrechen</button>
+              <button className="btn solid" type="button" onClick={saveContact}>Speichern</button>
             </div>
           </>
         )}
       </section>
 
-      {/* Signatur (ohne Button innen) */}
+      {/* Signatur */}
       <section className="card signature">
         <div className="sig-head">
           <div className="sig-title">Unterschrift</div>
-          <button type="button" className="icon-btn" onClick={clearSig} title="Unterschrift löschen">
-            🗑️
-          </button>
+          <button type="button" className="icon-btn" onClick={clearSig} title="Unterschrift löschen">🗑️</button>
         </div>
 
         <div className="pad-wrap">
@@ -453,19 +438,22 @@ export default function SignPage() {
         <label className="agree">
           <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
           <span>
-            Ich stimme den <a href="/AGB.pdf" target="_blank" rel="noopener noreferrer">AGB</a> und den{" "}
-            <a href="/Datenschutz.pdf" target="_blank" rel="noopener noreferrer">Datenschutzbestimmungen</a> zu.
+            Ich stimme den{" "}
+            <a href="/AGB.pdf" target="_blank" rel="noopener noreferrer">AGB</a>{" "}
+            und den{" "}
+            <a href="/Datenschutz.pdf" target="_blank" rel="noopener noreferrer">Datenschutzbestimmungen</a>{" "}
+            zu.
           </span>
         </label>
+
+        <div className="cta">
+          <button className="confirm" onClick={submit} disabled={saving}>
+            {saving ? "Wird gespeichert …" : "Unterschrift bestätigen ✅"}
+          </button>
+        </div>
       </section>
 
-      {/* NEUER Button außerhalb der Signatur-Box – identisch zum “Weiter”-Button */}
-      <section className="actions center roomy">
-        <button className="submit-btn next" onClick={submit} disabled={saving}>
-          <span className="label">{saving ? "Wird gespeichert …" : "Unterschrift bestätigen"}</span> <span aria-hidden>✅</span>
-        </button>
-      </section>
-
+      {/* Styles */}
       <style jsx>{`
         :root{
           --ink:#0f172a;
@@ -475,10 +463,11 @@ export default function SignPage() {
           --shadow-soft:0 16px 36px rgba(2,6,23,.08);
           --green:#22c55e;
           --blue:#0b6cf2;
-          --yellow:#FBBC05;
+          --yellow:#FBBC05; /* Google Yellow */
           --card:#ffffff;
         }
 
+        /* Hintergrund – klarer zweifarbiger Verlauf */
         .shell{
           min-height:100dvh;
           background:
@@ -491,7 +480,7 @@ export default function SignPage() {
 
         .card{
           width:100%;
-          max-width:880px;
+          max-width:880px; /* schmaler */
           background:var(--card);
           border:1px solid rgba(15,23,42,.08);
           border-radius:20px;
@@ -500,7 +489,7 @@ export default function SignPage() {
         }
 
         .card-hero{
-          text-align:left;
+          text-align:left; /* damit Bullets strikt linksbündig wirken */
           padding:22px 22px 16px;
           background: linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,.88) 58%, #ffffff 100%);
           box-shadow: var(--shadow);
@@ -510,43 +499,79 @@ export default function SignPage() {
         h1{margin:8px 0 6px;font-size:26px;color:#000;font-weight:900;text-align:center}
         .lead{margin:0 auto 12px;max-width:760px;color:var(--muted);text-align:center}
 
-        .bullets{margin:10px auto 2px;max-width:760px;display:flex;flex-direction:column;gap:10px;align-items:stretch}
-        .bullet{display:flex;gap:10px;align-items:flex-start;justify-content:flex-start;background:#ffffff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;box-shadow: var(--shadow-soft);text-align:left}
+        /* Bullets strikt linksbündig – auch auf Mobile */
+        .bullets{
+          margin:10px auto 2px;
+          max-width:760px;
+          display:flex;flex-direction:column;gap:10px;
+          align-items:stretch; /* linksbündig */
+        }
+        .bullet{
+          display:flex;gap:10px;align-items:flex-start;justify-content:flex-start;
+          background:#ffffff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;
+          box-shadow: var(--shadow-soft);
+          text-align:left;
+        }
         .tick{font-size:16px;line-height:1.2}
 
         .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:880px;width:100%}
-        .with-bar .bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;font-weight:900;color:#0b0b0b;border-bottom:1px solid rgba(15,23,42,.06)}
-        .with-bar.blue .bar{background:linear-gradient(90deg, rgba(11,108,242,.18), rgba(11,108,242,.08))}
-        .with-bar.green .bar{background:linear-gradient(90deg, rgba(34,197,94,.22), rgba(34,197,94,.10))}
-        .with-bar.yellow .bar{background:linear-gradient(90deg, rgba(251,188,5,.25), rgba(251,188,5,.10))}
+
+        .with-bar .bar{
+          display:flex;align-items:center;justify-content:space-between;gap:10px;
+          padding:8px 12px;font-weight:900;color:#0b0b0b;border-bottom:1px solid rgba(15,23,42,.06);
+        }
+        .with-bar.blue .bar{background:linear-gradient(90deg, rgba(11,108,242,.18), rgba(11,108,242,.08));}
+        .with-bar.green .bar{background:linear-gradient(90deg, rgba(34,197,94,.22), rgba(34,197,94,.10));}
+        .with-bar.yellow .bar{background:linear-gradient(90deg, rgba(251,188,5,.25), rgba(251,188,5,.10));}
+
         .with-bar .content{padding:12px 14px}
         .with-bar .value{font-weight:900;color:#0a0a0a}
         .with-bar .count{margin-left:8px;color:var(--blue);font-weight:900}
 
-        .icon-btn{border:1px solid rgba(0,0,0,.08);background:#fff;border-radius:10px;min-width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,.06)}
+        .icon-btn{
+          border:1px solid rgba(0,0,0,.08);background:#fff;border-radius:10px;min-width:30px;height:30px;
+          display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
+          box-shadow:0 6px 16px rgba(0,0,0,.06);
+        }
         .icon-btn:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(0,0,0,.08)}
-        .text{width:100%;height:36px;border-radius:10px;border:1px solid rgba(0,0,0,.12);padding:6px 10px}
+
+        .text{
+          width:100%;height:36px;border-radius:10px;border:1px solid rgba(0,0,0,.12);padding:6px 10px;
+        }
         .row-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:10px}
         .btn{border-radius:10px;height:34px;padding:0 12px;font-weight:900;letter-spacing:.2px;cursor:pointer}
         .btn.ghost{border:1px solid var(--line);background:#fff}
         .btn.solid{border:1px solid #0b6cf2;background:#0b6cf2;color:#fff}
         .btn.full{width:100%;justify-content:center}
+
         .open{display:inline-flex;margin-top:6px;color:#0b6cf2;font-weight:800}
 
-        .modal{position:fixed;inset:0;background:rgba(10,10,10,.25);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
-        .sheet{width:100%;max-width:420px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 28px 70px rgba(0,0,0,.18);padding:14px}
+        /* Option-Modal */
+        .modal{
+          position:fixed;inset:0;background:rgba(10,10,10,.25);
+          display:flex;align-items:center;justify-content:center;z-index:50;padding:16px;
+        }
+        .sheet{
+          width:100%;max-width:420px;background:#fff;border:1px solid var(--line);
+          border-radius:16px;box-shadow:0 28px 70px rgba(0,0,0,.18);padding:14px;
+        }
         .sheet h3{margin:4px 6px 10px;font-size:18px}
         .option-list{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
-        .opt{width:100%; text-align:left; border:1px solid #eaf0fe; background:#fff; padding:12px 14px; border-radius:12px; font-weight:800; cursor:pointer}
+        .opt{
+          width:100%; text-align:left; border:1px solid #eaf0fe; background:#fff;
+          padding:12px 14px; border-radius:12px; font-weight:800; cursor:pointer;
+        }
         .opt:hover{background:#f6faff}
         .opt.on{background:#eef5ff;border-color:#0b6cf2}
 
+        /* Kontakt-Grid */
         .contact-grid{display:grid;grid-template-columns:repeat(5, minmax(0,1fr));gap:10px;padding:12px 14px}
         .contact-grid.readonly{grid-template-columns:repeat(3, minmax(0,1fr))}
         .contact-grid label{display:flex;flex-direction:column;gap:6px}
         .contact-grid label input{height:34px;border:1px solid rgba(0,0,0,.12);border-radius:10px;padding:6px 10px}
         .contact-grid span{font-size:12px;color:var(--muted);font-weight:900;text-transform:uppercase;letter-spacing:.04em}
 
+        /* Signatur */
         .signature{padding:12px 14px}
         .sig-head{display:flex;justify-content:space-between;align-items:center;padding:4px 2px 8px}
         .sig-title{font-size:16px;font-weight:900}
@@ -556,20 +581,18 @@ export default function SignPage() {
         .agree{display:flex;gap:10px;align-items:flex-start;margin:12px 2px 0;color:var(--ink)}
         .agree a{color:#0b6cf2;text-decoration:underline}
 
-        /* NEU: Button wie auf der Formular-Seite */
-        .actions{display:flex;justify-content:flex-end;margin-top:6px}
-        .actions.center{justify-content:center}
-        .actions.roomy{margin-top:22px}
-
-        .submit-btn.next{
-          display:inline-flex;align-items:center;gap:10px;padding:14px 22px;border-radius:999px;border:1px solid #16a34a;
-          background:linear-gradient(135deg,#34d399 0%,#22c55e 100%);color:#ffffff;font-weight:800;letter-spacing:.2px;
-          box-shadow:0 12px 28px rgba(34,197,94,.35);transition:transform .12s, box-shadow .18s, filter .18s;
+        .cta{display:flex;justify-content:center;margin-top:16px}
+        .confirm{
+          display:inline-flex;align-items:center;justify-content:center;gap:10px;
+          padding:14px 22px;border-radius:999px;border:1px solid rgba(0,0,0,.16);
+          background:linear-gradient(135deg, #dff6e9 0%, #c8efd9 100%);
+          color:#0b0b0b;font-weight:900;letter-spacing:.2px;
+          box-shadow:0 14px 34px rgba(34,197,94,.30);
+          transition:transform .12s ease, box-shadow .18s ease, filter .18s ease;
         }
-        .submit-btn.next:hover{transform:translateY(-1px);filter:brightness(1.03);box-shadow:0 16px 36px rgba(34,197,94,.45)}
-        .submit-btn.next:active{transform:translateY(0);filter:brightness(.98);box-shadow:0 8px 18px rgba(34,197,94,.35)}
-        .submit-btn.next .label{font-size:16px}
-        .submit-btn.next:disabled{opacity:.6;cursor:not-allowed}
+        .confirm:hover{transform:translateY(-1px);filter:brightness(1.03);box-shadow:0 18px 42px rgba(34,197,94,.38)}
+        .confirm:active{transform:translateY(0);filter:brightness(.98)}
+        .confirm:disabled{opacity:.6;cursor:not-allowed}
 
         @media (max-width:1000px){
           .grid-2{grid-template-columns:1fr}
@@ -582,7 +605,6 @@ export default function SignPage() {
           .lead{max-width:92vw}
           .contact-grid{grid-template-columns:1fr}
           .contact-grid.readonly{grid-template-columns:1fr}
-          .submit-btn.next{width:100%;justify-content:center}
         }
       `}</style>
     </main>
