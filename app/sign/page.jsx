@@ -446,13 +446,21 @@ export default function SignPage() {
           </span>
         </label>
 
-        <div className="cta">
-          <button className="confirm" onClick={submit} disabled={saving}>
-            {saving ? "Wird gespeichert …" : "Unterschrift bestätigen ✅"}
-          </button>
-        </div>
+    
       </section>
-
+      
+<section className="actions center roomy">
+  <button
+    className="submit-btn next"
+    onClick={submit}
+    disabled={saving}
+  >
+    <span className="label">
+      {saving ? "Wird gespeichert …" : "Unterschrift bestätigen"}
+    </span>
+    <span aria-hidden>✅</span>
+  </button>
+</section>
       {/* Styles */}
       <style jsx>{`
         :root{
@@ -606,6 +614,43 @@ export default function SignPage() {
           .contact-grid{grid-template-columns:1fr}
           .contact-grid.readonly{grid-template-columns:1fr}
         }
+        .actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 22px;
+}
+
+.submit-btn.next {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 22px;
+  border-radius: 999px;
+  border: 1px solid #16a34a;
+  background: linear-gradient(135deg, #34d399 0%, #22c55e 100%);
+  color: #ffffff;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  box-shadow: 0 12px 28px rgba(34, 197, 94, 0.35);
+  transition: transform 0.12s, box-shadow 0.18s, filter 0.18s;
+}
+.submit-btn.next:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.03);
+  box-shadow: 0 16px 36px rgba(34, 197, 94, 0.45);
+}
+.submit-btn.next:active {
+  transform: translateY(0);
+  filter: brightness(0.98);
+  box-shadow: 0 8px 18px rgba(34, 197, 94, 0.35);
+}
+.submit-btn.next:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.submit-btn.next .label {
+  font-size: 16px;
+}
       `}</style>
     </main>
   );
