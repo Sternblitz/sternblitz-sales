@@ -103,7 +103,6 @@ export default function SignPage() {
     try {
       const g = window.google;
       if (!g?.maps?.places || !formGoogleInputRef.current) return;
-      // pro Sichtbarkeit neu initialisieren – verhindert „kein Autocomplete“
       const ac = new g.maps.places.Autocomplete(formGoogleInputRef.current, {
         types: ["establishment"],
         fields: ["name", "formatted_address", "url", "place_id"],
@@ -127,14 +126,12 @@ export default function SignPage() {
     } catch {}
   };
 
-  // Script lädt → init
   const onPlacesLoad = () => {
     initPlaces();
   };
-  // jedes Mal beim Öffnen des Edit-Felds → init (wichtig!)
+
   useEffect(() => {
     if (editProfile) {
-      // kleines Timeout, bis das Input im DOM ist
       const t = setTimeout(() => initPlaces(), 30);
       return () => clearTimeout(t);
     }
@@ -198,67 +195,59 @@ export default function SignPage() {
     } catch {}
     setEditOptionOpen(false);
   };
-// in app/sign/page.jsx
-const submit = async () => {
-  if (!agree) {
-    alert("Bitte AGB & Datenschutz bestätigen.");
-    return;
-  }
-  const c = canvasRef.current;
-  const blank = document.createElement("canvas");
-  blank.width = c.width; blank.height = c.height;
-  if (c.toDataURL() === blank.toDataURL()) {
-    alert("Bitte unterschreiben.");
-    return;
-  }
-  setSaving(true);
-  try {
-    const signaturePng = c.toDataURL("image/png");
 
-    // payload aus deiner Summary + counts aus summary.counts
-    const res = await fetch("/api/sign/submit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        googleProfile: summary.googleProfile,
-        selectedOption: summary.selectedOption,
-        company: summary.company,
-        firstName: summary.firstName,
-        lastName: summary.lastName,
-        email: summary.email,
-        phone: summary.phone,
-        signaturePng,
-        counts: summary.counts,         // <- wichtig: 1–3 / 1–2 / 1
-        // rep_code/source_account_id kannst du hier später ergänzen
-      }),
-    });
+  // ===== Submit (PDF erzeugen + API call) =====
+  const submit = async () => {
+    if (!agree) {
+      alert("Bitte AGB & Datenschutz bestätigen.");
+      return;
+    }
+    const c = canvasRef.current;
+    if (!c) {
+      alert("Signaturfeld nicht verfügbar.");
+      return;
+    }
+    const blank = document.createElement("canvas");
+    blank.width = c.width;
+    blank.height = c.height;
+    if (c.toDataURL() === blank.toDataURL()) {
+      alert("Bitte unterschreiben.");
+      return;
+    }
 
-    const json = await res.json();
-    if (!res.ok) throw new Error(json?.error || "Unbekannter Fehler");
+    setSaving(true);
+    try {
+      const signaturePng = c.toDataURL("image/png");
 
-    alert("Auftragsbestätigung erstellt.\nPDF-Link:\n" + json.pdfUrl);
-    // optional: Router-Push auf Danke-Seite
-    // router.push(`/thanks?pdf=${encodeURIComponent(json.pdfUrl)}`)
-  } catch (e) {
-    alert("Fehler: " + (e?.message || String(e)));
-  } finally {
-    setSaving(false);
-  }
-};
+      const res = await fetch("/api/sign/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          googleProfile: summary.googleProfile,
+          selectedOption: summary.selectedOption,
+          company: summary.company,
+          firstName: summary.firstName,
+          lastName: summary.lastName,
+          email: summary.email,
+          phone: summary.phone,
+          signaturePng,
+          counts: summary.counts, // wichtig: 1–3 / 1–2 / 1
+          // rep_code/source_account_id später ergänzbar
+        }),
+      });
 
-    // Erfolg
-    console.log("PDF gespeichert:", out);
-    alert("PDF gespeichert! ✅");
-    // Optional: out.pdfUrl anzeigen/nutzen
-    // window.open(out.pdfUrl, "_blank");
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || "Unbekannter Fehler");
 
-  } catch (e) {
-    console.error(e);
-    alert(`Fehler beim Speichern: ${e?.message || String(e)}`);
-  } finally {
-    setSaving(false);
-  }
-};
+      alert("Auftragsbestätigung erstellt.\nPDF-Link:\n" + json.pdfUrl);
+      // optional: router.push(`/thanks?pdf=${encodeURIComponent(json.pdfUrl)}`)
+    } catch (e) {
+      alert("Fehler: " + (e?.message || String(e)));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Anzeige
   const chosenLabel = optionLabel(summary.selectedOption);
   const chosenCount = optionCount(summary.selectedOption, summary.counts);
@@ -485,22 +474,23 @@ const submit = async () => {
             zu.
           </span>
         </label>
-
-    
       </section>
-      
-<section className="actions center roomy">
-  <button
-    className="submit-btn next"
-    onClick={submit}
-    disabled={saving}
-  >
-    <span className="label">
-      {saving ? "Wird gespeichert …" : "Unterschrift bestätigen"}
-    </span>
-    <span aria-hidden>✅</span>
-  </button>
-</section>
+
+      {/* Submit-Button unter der Card, wie gewünscht */}
+      <section className="actions center roomy">
+        <button
+          type="button"
+          className="submit-btn next"
+          onClick={submit}
+          disabled={saving}
+        >
+          <span className="label">
+            {saving ? "Wird gespeichert …" : "Unterschrift bestätigen"}
+          </span>
+          <span aria-hidden>✅</span>
+        </button>
+      </section>
+
       {/* Styles */}
       <style jsx>{`
         :root{
@@ -511,11 +501,9 @@ const submit = async () => {
           --shadow-soft:0 16px 36px rgba(2,6,23,.08);
           --green:#22c55e;
           --blue:#0b6cf2;
-          --yellow:#FBBC05; /* Google Yellow */
+          --yellow:#FBBC05;
           --card:#ffffff;
         }
-
-        /* Hintergrund – klarer zweifarbiger Verlauf */
         .shell{
           min-height:100dvh;
           background:
@@ -525,19 +513,17 @@ const submit = async () => {
           padding:44px 14px 68px;
           display:flex;flex-direction:column;gap:16px;align-items:center;
         }
-
         .card{
           width:100%;
-          max-width:880px; /* schmaler */
+          max-width:880px;
           background:var(--card);
           border:1px solid rgba(15,23,42,.08);
           border-radius:20px;
           box-shadow:var(--shadow);
           overflow:hidden;
         }
-
         .card-hero{
-          text-align:left; /* damit Bullets strikt linksbündig wirken */
+          text-align:left;
           padding:22px 22px 16px;
           background: linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,.88) 58%, #ffffff 100%);
           box-shadow: var(--shadow);
@@ -546,13 +532,11 @@ const submit = async () => {
         .logo{height:64px;width:auto;object-fit:contain;filter: drop-shadow(0 4px 10px rgba(0,0,0,.10))}
         h1{margin:8px 0 6px;font-size:26px;color:#000;font-weight:900;text-align:center}
         .lead{margin:0 auto 12px;max-width:760px;color:var(--muted);text-align:center}
-
-        /* Bullets strikt linksbündig – auch auf Mobile */
         .bullets{
           margin:10px auto 2px;
           max-width:760px;
           display:flex;flex-direction:column;gap:10px;
-          align-items:stretch; /* linksbündig */
+          align-items:stretch;
         }
         .bullet{
           display:flex;gap:10px;align-items:flex-start;justify-content:flex-start;
@@ -561,9 +545,7 @@ const submit = async () => {
           text-align:left;
         }
         .tick{font-size:16px;line-height:1.2}
-
         .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:880px;width:100%}
-
         .with-bar .bar{
           display:flex;align-items:center;justify-content:space-between;gap:10px;
           padding:8px 12px;font-weight:900;color:#0b0b0b;border-bottom:1px solid rgba(15,23,42,.06);
@@ -571,18 +553,15 @@ const submit = async () => {
         .with-bar.blue .bar{background:linear-gradient(90deg, rgba(11,108,242,.18), rgba(11,108,242,.08));}
         .with-bar.green .bar{background:linear-gradient(90deg, rgba(34,197,94,.22), rgba(34,197,94,.10));}
         .with-bar.yellow .bar{background:linear-gradient(90deg, rgba(251,188,5,.25), rgba(251,188,5,.10));}
-
         .with-bar .content{padding:12px 14px}
         .with-bar .value{font-weight:900;color:#0a0a0a}
         .with-bar .count{margin-left:8px;color:var(--blue);font-weight:900}
-
         .icon-btn{
           border:1px solid rgba(0,0,0,.08);background:#fff;border-radius:10px;min-width:30px;height:30px;
           display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
           box-shadow:0 6px 16px rgba(0,0,0,.06);
         }
         .icon-btn:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(0,0,0,.08)}
-
         .text{
           width:100%;height:36px;border-radius:10px;border:1px solid rgba(0,0,0,.12);padding:6px 10px;
         }
@@ -591,10 +570,7 @@ const submit = async () => {
         .btn.ghost{border:1px solid var(--line);background:#fff}
         .btn.solid{border:1px solid #0b6cf2;background:#0b6cf2;color:#fff}
         .btn.full{width:100%;justify-content:center}
-
         .open{display:inline-flex;margin-top:6px;color:#0b6cf2;font-weight:800}
-
-        /* Option-Modal */
         .modal{
           position:fixed;inset:0;background:rgba(10,10,10,.25);
           display:flex;align-items:center;justify-content:center;z-index:50;padding:16px;
@@ -611,24 +587,18 @@ const submit = async () => {
         }
         .opt:hover{background:#f6faff}
         .opt.on{background:#eef5ff;border-color:#0b6cf2}
-
-        /* Kontakt-Grid */
         .contact-grid{display:grid;grid-template-columns:repeat(5, minmax(0,1fr));gap:10px;padding:12px 14px}
         .contact-grid.readonly{grid-template-columns:repeat(3, minmax(0,1fr))}
         .contact-grid label{display:flex;flex-direction:column;gap:6px}
         .contact-grid label input{height:34px;border:1px solid rgba(0,0,0,.12);border-radius:10px;padding:6px 10px}
         .contact-grid span{font-size:12px;color:var(--muted);font-weight:900;text-transform:uppercase;letter-spacing:.04em}
-
-        /* Signatur */
         .signature{padding:12px 14px}
         .sig-head{display:flex;justify-content:space-between;align-items:center;padding:4px 2px 8px}
         .sig-title{font-size:16px;font-weight:900}
         .pad-wrap{border:1px dashed #cbd5e1;border-radius:16px;background:#fff;padding:12px;box-shadow:var(--shadow-soft)}
         .pad{width:100%;max-width:760px;height:260px;border:2px solid #e5e7eb;border-radius:12px;background:#fff;touch-action:none;margin:0 auto;display:block}
-
         .agree{display:flex;gap:10px;align-items:flex-start;margin:12px 2px 0;color:var(--ink)}
         .agree a{color:#0b6cf2;text-decoration:underline}
-
         .cta{display:flex;justify-content:center;margin-top:16px}
         .confirm{
           display:inline-flex;align-items:center;justify-content:center;gap:10px;
@@ -641,7 +611,6 @@ const submit = async () => {
         .confirm:hover{transform:translateY(-1px);filter:brightness(1.03);box-shadow:0 18px 42px rgba(34,197,94,.38)}
         .confirm:active{transform:translateY(0);filter:brightness(.98)}
         .confirm:disabled{opacity:.6;cursor:not-allowed}
-
         @media (max-width:1000px){
           .grid-2{grid-template-columns:1fr}
           .contact-grid{grid-template-columns:1fr 1fr}
@@ -655,42 +624,39 @@ const submit = async () => {
           .contact-grid.readonly{grid-template-columns:1fr}
         }
         .actions {
-  display: flex;
-  justify-content: center;
-  margin-top: 22px;
-}
-
-.submit-btn.next {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 22px;
-  border-radius: 999px;
-  border: 1px solid #16a34a;
-  background: linear-gradient(135deg, #34d399 0%, #22c55e 100%);
-  color: #ffffff;
-  font-weight: 800;
-  letter-spacing: 0.2px;
-  box-shadow: 0 12px 28px rgba(34, 197, 94, 0.35);
-  transition: transform 0.12s, box-shadow 0.18s, filter 0.18s;
-}
-.submit-btn.next:hover {
-  transform: translateY(-1px);
-  filter: brightness(1.03);
-  box-shadow: 0 16px 36px rgba(34, 197, 94, 0.45);
-}
-.submit-btn.next:active {
-  transform: translateY(0);
-  filter: brightness(0.98);
-  box-shadow: 0 8px 18px rgba(34, 197, 94, 0.35);
-}
-.submit-btn.next:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-.submit-btn.next .label {
-  font-size: 16px;
-}
+          display: flex;
+          justify-content: center;
+          margin-top: 22px;
+        }
+        .submit-btn.next {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          padding: 14px 22px;
+          border-radius: 999px;
+          border: 1px solid #16a34a;
+          background: linear-gradient(135deg, #34d399 0%, #22c55e 100%);
+          color: #ffffff;
+          font-weight: 800;
+          letter-spacing: 0.2px;
+          box-shadow: 0 12px 28px rgba(34, 197, 94, 0.35);
+          transition: transform 0.12s, box-shadow 0.18s, filter 0.18s;
+        }
+        .submit-btn.next:hover {
+          transform: translateY(-1px);
+          filter: brightness(1.03);
+          box-shadow: 0 16px 36px rgba(34, 197, 94, 0.45);
+        }
+        .submit-btn.next:active {
+          transform: translateY(0);
+          filter: brightness(0.98);
+          box-shadow: 0 8px 18px rgba(34, 197, 94, 0.35);
+        }
+        .submit-btn.next:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+        .submit-btn.next .label { font-size: 16px; }
       `}</style>
     </main>
   );
