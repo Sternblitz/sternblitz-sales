@@ -464,27 +464,34 @@ export default function LiveSimulator() {
           #bad-count::after{width:140%;height:15px}
         }
         /* Simulator vor Seiten-Gradient schützen */
-.review-container{
+.review-container {
   position: relative;
-  isolation: isolate;           /* eigener Stacking-Context */
-  border-radius: 16px;          /* an deinen Radius anpassen */
+  isolation: isolate;            /* eigener Stacking-Context */
+  border-radius: 16px;           /* an deinen Radius anpassen */
   box-shadow: 0 24px 60px rgba(2,6,23,.10); /* optional: etwas Lift */
 }
 
-/* weiße Basis unter alle Inhalte legen */
-.review-container::before{
-  content:"";
-  position:absolute;
-  inset:0;
+/* halbtransparenter Glas-Fade statt weißer Fläche */
+.review-container::before {
+  content: "";
+  position: absolute;
+  inset: 0;
   border-radius: inherit;
-  background:#fff;              /* <<< verhindert Farbüberlagerung */
-  z-index:0;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.92) 0%,
+    rgba(255, 255, 255, 0.75) 35%,
+    rgba(240, 244, 255, 0.6) 70%,
+    rgba(230, 238, 255, 0.45) 100%
+  );
+  backdrop-filter: saturate(1.1) blur(8px); /* sanfter Tiefeneffekt */
+  z-index: 0;
 }
 
 /* eigentliche Inhalte wieder oben drauf */
-.review-container > *{
+.review-container > * {
   position: relative;
-  z-index:1;
+  z-index: 1;
 }
       `}</style>
     </>
