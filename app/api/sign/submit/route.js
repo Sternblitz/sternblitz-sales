@@ -3,12 +3,27 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseServer";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
-export const runtime = "nodejs"; // wichtig: Node-Umgebung, nicht Edge
+export const runtime = "nodejs"; // Node, nicht Edge
 
 function dataUrlToUint8(signaturePng) {
   const base64 = (signaturePng || "").split(",").pop() || "";
   const bin = Buffer.from(base64, "base64");
   return new Uint8Array(bin);
+}
+
+function labelFor(opt) {
+  return opt === "123" ? "1–3 ⭐ löschen"
+       : opt === "12"  ? "1–2 ⭐ löschen"
+       : opt === "1"   ? "1 ⭐ löschen"
+       : "Individuelle Löschungen";
+}
+
+function chosenCount(selectedOption, counts) {
+  if (!counts) return null;
+  if (selectedOption === "123") return counts.c123 ?? null;
+  if (selectedOption === "12")  return counts.c12  ?? null;
+  if (selectedOption === "1")   return counts.c1   ?? null;
+  return null;
 }
 
 async function buildPdf(p, sigBytes) {
@@ -47,7 +62,7 @@ async function buildPdf(p, sigBytes) {
 
   const lines = [
     ["Google-Profil", p.googleProfile],
-    ["Bewertungen", p.selectedOption],
+    ["Bewertungen", labelFor(p.selectedOption)],
     ["Firma", p.company],
     ["Vorname", p.firstName],
     ["Nachname", p.lastName],
@@ -57,6 +72,27 @@ async function buildPdf(p, sigBytes) {
   for (const [k, v] of lines) {
     page.drawText(`${k}:`, { x: 50, y, font: bold, size: 10, color: rgb(0, 0, 0) });
     page.drawText(String(v || "—"), { x: 160, y, font, size: 10, color: rgb(0, 0, 0) });
+    y -= 14;
+  }
+
+  // Gewählte Option inkl. Menge
+  const picked = chosenCount(p.selectedOption, p.counts);
+  y -= 6;
+  page.drawText("Gewählte Löschung:", { x: 50, y, font: bold, size: 10, color: rgb(0,0,0) });
+  page.drawText(
+    `${labelFor(p.selectedOption)}${picked != null ? ` — Entfernte: ${Number(picked).toLocaleString("de-DE")}` : ""}`,
+    { x: 160, y, font, size: 10, color: rgb(0,0,0) }
+  );
+  y -= 14;
+
+  // Kompakte Übersicht aller Zähler
+  if (p.counts) {
+    const c123 = Number(p.counts.c123 ?? 0).toLocaleString("de-DE");
+    const c12  = Number(p.counts.c12  ?? 0).toLocaleString("de-DE");
+    const c1   = Number(p.counts.c1   ?? 0).toLocaleString("de-DE");
+    page.drawText("Zähler gesamt:", { x: 50, y, font: bold, size: 10, color: rgb(0,0,0) });
+    page.drawText(`1–3⭐: ${c123}   |   1–2⭐: ${c12}   |   1⭐: ${c1}`,
+      { x: 160, y, font, size: 10, color: rgb(0,0,0) });
     y -= 14;
   }
 
@@ -89,44 +125,46 @@ export async function POST(req) {
       email,
       phone,
       signaturePng,
+      counts, // { c123, c12, c1 } optional
     } = body || {};
-    
-// Dateiname sicher machen (nur Buchstaben/Ziffern/Unterstrich/Minus)
-const safe = (firstName || "kunde").toString().trim().replace(/[^a-z0-9_-]+/gi, "_");
-    
+
     if (!googleProfile || !signaturePng) {
       return NextResponse.json({ error: "Ungültige Daten" }, { status: 400 });
     }
 
-    // PDF bauen
+    // PDF bauen (inkl. counts)
     const sigBytes = dataUrlToUint8(signaturePng);
     const pdfBytes = await buildPdf(
-      { googleProfile, selectedOption, company, firstName, lastName, email, phone },
+      { googleProfile, selectedOption, company, firstName, lastName, email, phone, counts },
       sigBytes
     );
 
     // Upload zu Supabase Storage (Server-Client!)
     const sb = supabaseAdmin();
-    const fileNameSafe = (firstName || "kunde").replace(/[^\w-]+/g, "_");
-    const fileName = `${Date.now()}_${safe}.pdf`;
 
-    // Supabase akzeptiert ArrayBuffer/Uint8Array/Blob/Buffer – hier Buffer für Node:
+    // Dateiname sicher machen (nur Buchstaben/Ziffern/Unterstrich/Minus)
+    const safeBase = (firstName || "kunde").toString().trim().replace(/[^a-z0-9_-]+/gi, "_") || "kunde";
+    const fileName = `${Date.now()}_${safeBase}.pdf`;
+
     const buffer = Buffer.from(pdfBytes);
 
-    const { data: uploadRes, error: uploadErr } = await sb
+    const { error: uploadErr } = await sb
       .storage
-      .from("contracts")
+      .from("contracts")       // Bucket-Name genau so wie im Dashboard
       .upload(fileName, buffer, {
         contentType: "application/pdf",
         upsert: false,
       });
 
-    if (uploadErr) throw uploadErr;
+    if (uploadErr) {
+      console.error("Supabase upload error:", uploadErr);
+      return NextResponse.json({ error: uploadErr.message || "Upload fehlgeschlagen" }, { status: 500 });
+    }
 
-    const { data: publicUrlData } = sb.storage.from("contracts").getPublicUrl(fileName);
+    const { data: pub } = sb.storage.from("contracts").getPublicUrl(fileName);
+    const picked = chosenCount(selectedOption, counts);
 
-    // (Optional) in Tabelle "leads" speichern – nur wenn vorhanden
-    // Tipp: Spalte "agent_id" später für Zuordnung der Handelsvertreter ergänzen
+    // Optional: in Tabelle "leads" persistieren (Spalten anlegen falls nicht da)
     try {
       await sb.from("leads").insert([{
         google_profile: googleProfile,
@@ -136,15 +174,17 @@ const safe = (firstName || "kunde").toString().trim().replace(/[^a-z0-9_-]+/gi, 
         last_name: lastName,
         email,
         phone,
+        option_counts: counts ?? null,              // JSONB
+        option_chosen_count: picked ?? null,        // INT
         pdf_path: fileName,
-        pdf_url: publicUrlData.publicUrl,
+        pdf_url: pub.publicUrl,
       }]);
     } catch (e) {
-      // nicht fatal fürs PDF – nur loggen
+      // Nicht fatal fürs PDF – nur loggen
       console.warn("Leads-Insert Warnung:", e?.message || e);
     }
 
-    return NextResponse.json({ ok: true, pdfUrl: publicUrlData.publicUrl });
+    return NextResponse.json({ ok: true, pdfUrl: pub.publicUrl });
   } catch (e) {
     console.error("sign/submit error:", e);
     return NextResponse.json({ error: e?.message || "Fehler" }, { status: 500 });
