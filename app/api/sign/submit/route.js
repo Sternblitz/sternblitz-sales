@@ -1,11 +1,12 @@
+// app/api/sign/submit/route.js
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabaseClient";
+import { supabaseAdmin } from "@/lib/supabaseServer";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
-export const runtime = "nodejs";
+export const runtime = "nodejs"; // wichtig: Node-Umgebung, nicht Edge
 
 function dataUrlToUint8(signaturePng) {
-  const base64 = signaturePng.split(",").pop() || "";
+  const base64 = (signaturePng || "").split(",").pop() || "";
   const bin = Buffer.from(base64, "base64");
   return new Uint8Array(bin);
 }
@@ -24,9 +25,10 @@ async function buildPdf(p, sigBytes) {
   });
 
   y -= 20;
-  page.drawText("Hiermit bestätige ich den Auftrag zur Löschung meiner negativen Google-Bewertungen.", {
-    x: 50, y, font, size: 11, color: rgb(0, 0, 0),
-  });
+  page.drawText(
+    "Hiermit bestätige ich den Auftrag zur Löschung meiner negativen Google-Bewertungen.",
+    { x: 50, y, font, size: 11, color: rgb(0, 0, 0) }
+  );
 
   y -= 25;
   const bullets = [
@@ -35,12 +37,12 @@ async function buildPdf(p, sigBytes) {
     "Dauerhafte Entfernung",
   ];
   for (const b of bullets) {
-    page.drawText("• " + b, { x: 50, y, font, size: 11 });
+    page.drawText("• " + b, { x: 50, y, font, size: 11, color: rgb(0, 0, 0) });
     y -= 16;
   }
 
   y -= 10;
-  page.drawText("Zusammenfassung", { x: 50, y, font: bold, size: 12 });
+  page.drawText("Zusammenfassung", { x: 50, y, font: bold, size: 12, color: rgb(0, 0, 0) });
   y -= 16;
 
   const lines = [
@@ -53,23 +55,26 @@ async function buildPdf(p, sigBytes) {
     ["Telefon", p.phone],
   ];
   for (const [k, v] of lines) {
-    page.drawText(`${k}:`, { x: 50, y, font: bold, size: 10 });
-    page.drawText(String(v || "—"), { x: 160, y, font, size: 10 });
+    page.drawText(`${k}:`, { x: 50, y, font: bold, size: 10, color: rgb(0, 0, 0) });
+    page.drawText(String(v || "—"), { x: 160, y, font, size: 10, color: rgb(0, 0, 0) });
     y -= 14;
   }
 
   y -= 12;
-  page.drawText("Unterschrift:", { x: 50, y, font: bold, size: 11 });
+  page.drawText("Unterschrift:", { x: 50, y, font: bold, size: 11, color: rgb(0, 0, 0) });
   y -= 100;
+
   if (sigBytes?.length) {
     const png = await pdf.embedPng(sigBytes);
     page.drawImage(png, { x: 50, y, width: 200, height: 100 });
   }
 
   y -= 20;
-  page.drawText(`Datum: ${new Date().toLocaleString("de-DE")}`, { x: 50, y, font, size: 10 });
+  page.drawText(`Datum: ${new Date().toLocaleString("de-DE")}`, {
+    x: 50, y, font, size: 10, color: rgb(0, 0, 0)
+  });
 
-  return await pdf.save();
+  return await pdf.save(); // Uint8Array
 }
 
 export async function POST(req) {
@@ -84,33 +89,43 @@ export async function POST(req) {
       email,
       phone,
       signaturePng,
-    } = body;
+    } = body || {};
 
-    if (!googleProfile || !signaturePng)
+    if (!googleProfile || !signaturePng) {
       return NextResponse.json({ error: "Ungültige Daten" }, { status: 400 });
+    }
 
+    // PDF bauen
     const sigBytes = dataUrlToUint8(signaturePng);
-    const pdfBytes = await buildPdf(body, sigBytes);
+    const pdfBytes = await buildPdf(
+      { googleProfile, selectedOption, company, firstName, lastName, email, phone },
+      sigBytes
+    );
 
-    const fileName = `${Date.now()}_${firstName || "kunde"}.pdf`;
+    // Upload zu Supabase Storage (Server-Client!)
+    const sb = supabaseAdmin();
+    const fileNameSafe = (firstName || "kunde").replace(/[^\w-]+/g, "_");
+    const fileName = `contracts/${Date.now()}_${fileNameSafe}.pdf`;
 
-    // Supabase Upload
-    const { data, error } = await supabase()
-      .storage.from("contracts")
-      .upload(fileName, pdfBytes, {
+    // Supabase akzeptiert ArrayBuffer/Uint8Array/Blob/Buffer – hier Buffer für Node:
+    const buffer = Buffer.from(pdfBytes);
+
+    const { data: uploadRes, error: uploadErr } = await sb
+      .storage
+      .from("contracts")
+      .upload(fileName, buffer, {
         contentType: "application/pdf",
         upsert: false,
       });
 
-    if (error) throw error;
+    if (uploadErr) throw uploadErr;
 
-    const { data: publicUrlData } = supabase()
-      .storage.from("contracts")
-      .getPublicUrl(fileName);
+    const { data: publicUrlData } = sb.storage.from("contracts").getPublicUrl(fileName);
 
-    // Optional: Lead speichern (wenn du schon Tabelle „leads“ hast)
-    await supabase().from("leads").insert([
-      {
+    // (Optional) in Tabelle "leads" speichern – nur wenn vorhanden
+    // Tipp: Spalte "agent_id" später für Zuordnung der Handelsvertreter ergänzen
+    try {
+      await sb.from("leads").insert([{
         google_profile: googleProfile,
         selected_option: selectedOption,
         company,
@@ -120,15 +135,15 @@ export async function POST(req) {
         phone,
         pdf_path: fileName,
         pdf_url: publicUrlData.publicUrl,
-      },
-    ]);
+      }]);
+    } catch (e) {
+      // nicht fatal fürs PDF – nur loggen
+      console.warn("Leads-Insert Warnung:", e?.message || e);
+    }
 
-    return NextResponse.json({
-      ok: true,
-      pdfUrl: publicUrlData.publicUrl,
-    });
+    return NextResponse.json({ ok: true, pdfUrl: publicUrlData.publicUrl });
   } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: e.message || "Fehler" }, { status: 500 });
+    console.error("sign/submit error:", e);
+    return NextResponse.json({ error: e?.message || "Fehler" }, { status: 500 });
   }
 }
