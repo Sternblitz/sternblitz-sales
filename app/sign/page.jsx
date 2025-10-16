@@ -4,11 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import Script from "next/script";
 
 export default function SignPage() {
-  // ======= Canvas (Signatur) =======
+  // ===== Canvas (Signatur) =====
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
-  // ======= Daten aus Step 1 (Formular) =======
+  // ===== Daten aus Step 1 =====
   const [summary, setSummary] = useState({
     googleProfile: "",
     googleUrl: "",
@@ -39,7 +39,7 @@ export default function SignPage() {
     phone: "",
   });
 
-  // ======= Helpers =======
+  // ===== Helpers =====
   const optionLabel = (opt) =>
     ({ "123": "1–3 ⭐", "12": "1–2 ⭐", "1": "1 ⭐", custom: "Individuell" }[opt] || "—");
 
@@ -53,7 +53,7 @@ export default function SignPage() {
 
   const fmtCount = (n) => (Number.isFinite(n) ? `→ ${Number(n).toLocaleString()} Bewertungen` : "→ —");
 
-  // ======= Session laden =======
+  // ===== Session laden =====
   useEffect(() => {
     try {
       const p = JSON.parse(sessionStorage.getItem("sb_checkout_payload") || "{}");
@@ -80,12 +80,12 @@ export default function SignPage() {
     } catch {}
   }, []);
 
-  // ======= Canvas Setup =======
+  // ===== Canvas Setup =====
   useEffect(() => {
     const c = canvasRef.current;
     if (!c) return;
     const ratio = Math.max(window.devicePixelRatio || 1, 1);
-    const cssW = 700;
+    const cssW = 760; // etwas schmaler
     const cssH = 260;
     c.style.width = cssW + "px";
     c.style.height = cssH + "px";
@@ -98,11 +98,12 @@ export default function SignPage() {
     ctx.strokeStyle = "#0f172a";
   }, []);
 
-  // ======= Google Places (Profil-Edit) =======
+  // ===== Google Places (Profil-Edit) =====
   const initPlaces = () => {
     try {
       const g = window.google;
       if (!g?.maps?.places || !formGoogleInputRef.current) return;
+      // pro Sichtbarkeit neu initialisieren – verhindert „kein Autocomplete“
       const ac = new g.maps.places.Autocomplete(formGoogleInputRef.current, {
         types: ["establishment"],
         fields: ["name", "formatted_address", "url", "place_id"],
@@ -126,7 +127,20 @@ export default function SignPage() {
     } catch {}
   };
 
-  // ======= Zeichnen =======
+  // Script lädt → init
+  const onPlacesLoad = () => {
+    initPlaces();
+  };
+  // jedes Mal beim Öffnen des Edit-Felds → init (wichtig!)
+  useEffect(() => {
+    if (editProfile) {
+      // kleines Timeout, bis das Input im DOM ist
+      const t = setTimeout(() => initPlaces(), 30);
+      return () => clearTimeout(t);
+    }
+  }, [editProfile]);
+
+  // ===== Zeichnen =====
   const getPos = (e) => {
     const rect = canvasRef.current.getBoundingClientRect();
     if (e.touches && e.touches[0]) {
@@ -162,7 +176,7 @@ export default function SignPage() {
     ctx.clearRect(0, 0, c.width, c.height);
   };
 
-  // ======= Aktionen =======
+  // ===== Aktionen =====
   const saveContact = () => {
     setSummary((s) => ({ ...s, ...contactDraft }));
     try {
@@ -215,10 +229,10 @@ export default function SignPage() {
       <Script
         src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`}
         strategy="afterInteractive"
-        onLoad={initPlaces}
+        onLoad={onPlacesLoad}
       />
 
-      {/* HERO */}
+      {/* HERO – schmaler */}
       <section className="card card-hero">
         <div className="hero-head">
           <img
@@ -233,9 +247,18 @@ export default function SignPage() {
         </p>
 
         <div className="bullets">
-          <div className="bullet"><span className="tick">✅</span><span>Fixpreis: <b>299 €</b> (einmalig)</span></div>
-          <div className="bullet"><span className="tick">✅</span><span>Zahlung erst nach Löschung (von mind. 90 % der Bewertungen)</span></div>
-          <div className="bullet"><span className="tick">✅</span><span>Dauerhafte Entfernung</span></div>
+          <div className="bullet">
+            <span className="tick">✅</span>
+            <span>Fixpreis: <b>299 €</b> (einmalig)</span>
+          </div>
+          <div className="bullet">
+            <span className="tick">✅</span>
+            <span>Zahlung erst nach Löschung (von mind. 90 % der Bewertungen)</span>
+          </div>
+          <div className="bullet">
+            <span className="tick">✅</span>
+            <span>Dauerhafte Entfernung</span>
+          </div>
         </div>
       </section>
 
@@ -305,47 +328,55 @@ export default function SignPage() {
         <div className="card with-bar blue">
           <div className="bar">
             <span>Zu löschende Bewertungen</span>
-            <div className="bar-right">
-              <button
-                type="button"
-                className="icon-btn"
-                onClick={() => setEditOptionOpen((v) => !v)}
-                title="Bewertungs-Option ändern"
-              >
-                ✏️
-              </button>
-              {editOptionOpen && (
-                <div className="dropdown">
-                  {[
-                    ["123", "1–3 ⭐ löschen"],
-                    ["12", "1–2 ⭐ löschen"],
-                    ["1", "1 ⭐ löschen"],
-                    ["custom", "Individuelle Löschungen"],
-                  ].map(([val, label]) => (
-                    <button
-                      key={val}
-                      type="button"
-                      className={`drop-item ${summary.selectedOption === val ? "on" : ""}`}
-                      onClick={() => changeOption(val)}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => setEditOptionOpen(true)}
+              title="Bewertungs-Option ändern"
+            >
+              ✏️
+            </button>
           </div>
 
           <div className="content">
             <div className="value">
-              {optionLabel(summary.selectedOption)} <span className="count">{countText}</span>
+              {chosenLabel} <span className="count">{countText}</span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Kontakt-Übersicht */}
-      <section className="card with-bar violet">
+      {/* Option-Auswahl (Modal) */}
+      {editOptionOpen && (
+        <div className="modal" onClick={() => setEditOptionOpen(false)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <h3>Option wählen</h3>
+            <div className="option-list">
+              {[
+                ["123", "1–3 ⭐ löschen"],
+                ["12", "1–2 ⭐ löschen"],
+                ["1", "1 ⭐ löschen"],
+                ["custom", "Individuelle Löschungen"],
+              ].map(([val, label]) => (
+                <button
+                  key={val}
+                  type="button"
+                  className={`opt ${summary.selectedOption === val ? "on" : ""}`}
+                  onClick={() => changeOption(val)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button className="btn ghost full" type="button" onClick={() => setEditOptionOpen(false)}>
+              Schließen
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Kontakt-Übersicht – Google Gelb/Orange */}
+      <section className="card with-bar yellow">
         <div className="bar">
           <span>Kontakt-Übersicht</span>
           <button
@@ -431,48 +462,59 @@ export default function SignPage() {
           --shadow:0 22px 60px rgba(2,6,23,.10);
           --shadow-soft:0 16px 36px rgba(2,6,23,.08);
           --green:#22c55e;
-          --green-100:#d8e7db;
           --blue:#0b6cf2;
-          --vio:#7c3aed;
+          --yellow:#FBBC05; /* Google Yellow */
           --card:#ffffff;
         }
 
-        /* Hintergrund – kräftiger zweifarbiger Verlauf */
+        /* Hintergrund – klarer zweifarbiger Verlauf */
         .shell{
           min-height:100dvh;
           background:
-            radial-gradient(1200px 600px at 12% 0%, rgba(216,231,219,.95) 0%, rgba(216,231,219,.1) 60%),
-            radial-gradient(1400px 700px at 100% 0%, rgba(52,140,255,.40) 0%, rgba(52,140,255,0) 65%),
+            radial-gradient(1200px 600px at 12% 0%, rgba(216,231,219,.95) 0%, rgba(216,231,219,.12) 60%),
+            radial-gradient(1400px 700px at 100% 0%, rgba(52,140,255,.42) 0%, rgba(52,140,255,0) 65%),
             linear-gradient(180deg, #f3f9ff 0%, #ffffff 60%, #ffffff 100%);
-          padding:48px 14px 72px;
-          display:flex;flex-direction:column;gap:18px;align-items:center;
+          padding:44px 14px 68px;
+          display:flex;flex-direction:column;gap:16px;align-items:center;
         }
 
         .card{
-          width:100%;max-width:980px;background:var(--card);
+          width:100%;
+          max-width:880px; /* schmaler */
+          background:var(--card);
           border:1px solid rgba(15,23,42,.08);
-          border-radius:20px;box-shadow:var(--shadow);overflow:hidden;
+          border-radius:20px;
+          box-shadow:var(--shadow);
+          overflow:hidden;
         }
 
         .card-hero{
-          text-align:center;padding:26px 20px 18px;
+          text-align:left; /* damit Bullets strikt linksbündig wirken */
+          padding:22px 22px 16px;
           background: linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,.88) 58%, #ffffff 100%);
           box-shadow: var(--shadow);
         }
         .hero-head{display:flex;justify-content:center}
         .logo{height:64px;width:auto;object-fit:contain;filter: drop-shadow(0 4px 10px rgba(0,0,0,.10))}
-        h1{margin:8px 0 6px;font-size:28px;color:#000;font-weight:900}
-        .lead{margin:0 auto 14px;max-width:780px;color:var(--muted)}
+        h1{margin:8px 0 6px;font-size:26px;color:#000;font-weight:900;text-align:center}
+        .lead{margin:0 auto 12px;max-width:760px;color:var(--muted);text-align:center}
 
-        .bullets{display:flex;flex-direction:column;gap:10px;margin:8px auto 4px;max-width:760px}
+        /* Bullets strikt linksbündig – auch auf Mobile */
+        .bullets{
+          margin:10px auto 2px;
+          max-width:760px;
+          display:flex;flex-direction:column;gap:10px;
+          align-items:stretch; /* linksbündig */
+        }
         .bullet{
-          display:flex;gap:10px;align-items:center;justify-content:flex-start;
+          display:flex;gap:10px;align-items:flex-start;justify-content:flex-start;
           background:#ffffff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;
           box-shadow: var(--shadow-soft);
+          text-align:left;
         }
-        .tick{font-size:16px}
+        .tick{font-size:16px;line-height:1.2}
 
-        .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:980px;width:100%}
+        .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:880px;width:100%}
 
         .with-bar .bar{
           display:flex;align-items:center;justify-content:space-between;gap:10px;
@@ -480,7 +522,7 @@ export default function SignPage() {
         }
         .with-bar.blue .bar{background:linear-gradient(90deg, rgba(11,108,242,.18), rgba(11,108,242,.08));}
         .with-bar.green .bar{background:linear-gradient(90deg, rgba(34,197,94,.22), rgba(34,197,94,.10));}
-        .with-bar.violet .bar{background:linear-gradient(90deg, rgba(124,58,237,.16), rgba(124,58,237,.08));}
+        .with-bar.yellow .bar{background:linear-gradient(90deg, rgba(251,188,5,.25), rgba(251,188,5,.10));}
 
         .with-bar .content{padding:12px 14px}
         .with-bar .value{font-weight:900;color:#0a0a0a}
@@ -500,29 +542,41 @@ export default function SignPage() {
         .btn{border-radius:10px;height:34px;padding:0 12px;font-weight:900;letter-spacing:.2px;cursor:pointer}
         .btn.ghost{border:1px solid var(--line);background:#fff}
         .btn.solid{border:1px solid #0b6cf2;background:#0b6cf2;color:#fff}
+        .btn.full{width:100%;justify-content:center}
 
         .open{display:inline-flex;margin-top:6px;color:#0b6cf2;font-weight:800}
 
-        .bar-right{position:relative;display:flex;align-items:center;gap:6px}
-        .dropdown{
-          position:absolute;top:36px;right:0;background:#fff;border:1px solid var(--line);border-radius:12px;
-          box-shadow:0 18px 46px rgba(0,0,0,.12);overflow:hidden;z-index:30;min-width:210px;
+        /* Option-Modal */
+        .modal{
+          position:fixed;inset:0;background:rgba(10,10,10,.25);
+          display:flex;align-items:center;justify-content:center;z-index:50;padding:16px;
         }
-        .drop-item{display:block;width:100%;text-align:left;padding:10px 12px;background:#fff;border:0;cursor:pointer}
-        .drop-item:hover{background:#f6faff}
-        .drop-item.on{background:#eef5ff;font-weight:900}
+        .sheet{
+          width:100%;max-width:420px;background:#fff;border:1px solid var(--line);
+          border-radius:16px;box-shadow:0 28px 70px rgba(0,0,0,.18);padding:14px;
+        }
+        .sheet h3{margin:4px 6px 10px;font-size:18px}
+        .option-list{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+        .opt{
+          width:100%; text-align:left; border:1px solid #eaf0fe; background:#fff;
+          padding:12px 14px; border-radius:12px; font-weight:800; cursor:pointer;
+        }
+        .opt:hover{background:#f6faff}
+        .opt.on{background:#eef5ff;border-color:#0b6cf2}
 
+        /* Kontakt-Grid */
         .contact-grid{display:grid;grid-template-columns:repeat(5, minmax(0,1fr));gap:10px;padding:12px 14px}
         .contact-grid.readonly{grid-template-columns:repeat(3, minmax(0,1fr))}
         .contact-grid label{display:flex;flex-direction:column;gap:6px}
         .contact-grid label input{height:34px;border:1px solid rgba(0,0,0,.12);border-radius:10px;padding:6px 10px}
         .contact-grid span{font-size:12px;color:var(--muted);font-weight:900;text-transform:uppercase;letter-spacing:.04em}
 
+        /* Signatur */
         .signature{padding:12px 14px}
         .sig-head{display:flex;justify-content:space-between;align-items:center;padding:4px 2px 8px}
         .sig-title{font-size:16px;font-weight:900}
         .pad-wrap{border:1px dashed #cbd5e1;border-radius:16px;background:#fff;padding:12px;box-shadow:var(--shadow-soft)}
-        .pad{width:100%;max-width:700px;height:260px;border:2px solid #e5e7eb;border-radius:12px;background:#fff;touch-action:none;margin:0 auto;display:block}
+        .pad{width:100%;max-width:760px;height:260px;border:2px solid #e5e7eb;border-radius:12px;background:#fff;touch-action:none;margin:0 auto;display:block}
 
         .agree{display:flex;gap:10px;align-items:flex-start;margin:12px 2px 0;color:var(--ink)}
         .agree a{color:#0b6cf2;text-decoration:underline}
@@ -531,7 +585,7 @@ export default function SignPage() {
         .confirm{
           display:inline-flex;align-items:center;justify-content:center;gap:10px;
           padding:14px 22px;border-radius:999px;border:1px solid rgba(0,0,0,.16);
-          background:linear-gradient(135deg, #d6f2e1 0%, #bcead0 100%);
+          background:linear-gradient(135deg, #dff6e9 0%, #c8efd9 100%);
           color:#0b0b0b;font-weight:900;letter-spacing:.2px;
           box-shadow:0 14px 34px rgba(34,197,94,.30);
           transition:transform .12s ease, box-shadow .18s ease, filter .18s ease;
@@ -547,6 +601,8 @@ export default function SignPage() {
           .pad{max-width:100%}
         }
         @media (max-width:560px){
+          .card{max-width:92vw}
+          .lead{max-width:92vw}
           .contact-grid{grid-template-columns:1fr}
           .contact-grid.readonly{grid-template-columns:1fr}
         }
