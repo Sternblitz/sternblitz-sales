@@ -5,7 +5,7 @@ import LiveSimulator from "../../components/LiveSimulator"; // unverändert lass
 
 export default function DashboardPage() {
   const [formOpen, setFormOpen] = useState(false);
-  const [blast, setBlast] = useState(false); // Raketen-Animation (oben)
+  const [blast, setBlast] = useState(false);     // Raketen-Animation (oben)
   const [flyCheck, setFlyCheck] = useState(false); // fliegender Haken beim Submit
 
   // Auswahl aus dem Simulator
@@ -14,14 +14,14 @@ export default function DashboardPage() {
   // Google-Profil (Form-Feld, editierbar)
   const formGoogleInputRef = useRef(null);
   const [googleField, setGoogleField] = useState(""); // "Name, Adresse"
-  const [googleUrl, setGoogleUrl] = useState("");
+  const [googleUrl,   setGoogleUrl]   = useState("");
 
   // Kontaktdaten
-  const [company, setCompany] = useState("");
+  const [company, setCompany]     = useState("");
   const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [lastName, setLastName]   = useState("");
+  const [email, setEmail]         = useState("");
+  const [phone, setPhone]         = useState("");
 
   // Individuelle Wünsche (Textfeld)
   const [customNotes, setCustomNotes] = useState("");
@@ -80,7 +80,7 @@ export default function DashboardPage() {
 
   // Google Places Autocomplete auch im Formular (bearbeitbar)
   useEffect(() => {
-    const g = window.google;
+    const g = typeof window !== "undefined" ? window.google : null;
     if (!g?.maps?.places || !formGoogleInputRef.current) return;
     try {
       const ac = new g.maps.places.Autocomplete(formGoogleInputRef.current, {
@@ -88,12 +88,11 @@ export default function DashboardPage() {
         fields: ["name", "formatted_address", "url", "place_id"],
       });
       ac.addListener("place_changed", () => {
-        const place = ac.getPlace();
-        const name = place?.name || "";
-        theaddress:
+        const place   = ac.getPlace();
+        const name    = place?.name || "";
         const address = place?.formatted_address || "";
-        const url = place?.url || "";
-        const fresh = [name, address].filter(Boolean).join(", ");
+        const url     = place?.url || "";
+        const fresh   = [name, address].filter(Boolean).join(", ");
         setGoogleField(fresh);
         setGoogleUrl(url || "");
         try {
@@ -127,11 +126,7 @@ export default function DashboardPage() {
       googleUrl,
       selectedOption: option,
       customNotes: option === "custom" ? customNotes.trim() : "",
-      company,
-      firstName,
-      lastName,
-      email,
-      phone,
+      company, firstName, lastName, email, phone,
       submittedAt: new Date().toISOString(),
     };
     try {
@@ -347,7 +342,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Mehr Abstand + hellgrüner Confirm mit ✅, zentriert */}
+          {/* Mehr Abstand + hellgrüner Confirm mit ✅ — MITTIG */}
           <div className="actions roomy center">
             <button className="submit-btn confirm" type="submit">
               <span className="emoji" aria-hidden>✅</span>
@@ -375,7 +370,7 @@ export default function DashboardPage() {
           padding: 0 12px 80px;
         }
 
-        /* EIN Button (schwarz) mit 🚀 – größer + zentriert */
+        /* EIN Button (schwarz) mit 🚀 – etwas größer + zentriert */
         .cta {
           display: flex;
           justify-content: center;
@@ -386,7 +381,7 @@ export default function DashboardPage() {
           border: 1px solid #0b0b0b;
           background: #0b0b0b;
           color: #fff;
-          padding: 18px 28px; /* größer */
+          padding: 18px 28px;        /* größer */
           border-radius: 18px;
           font-weight: 900;
           letter-spacing: 0.2px;
@@ -417,7 +412,7 @@ export default function DashboardPage() {
         .drawer {
           max-width: 900px;
           margin: 20px auto 0;
-          background: linear-gradient(135deg, #e6f6ea 0%, #ffffff 80%);
+          background: linear-gradient(135deg, #e6f6ea 0%, #ffffff 80%); /* hellgrün -> weiß */
           border: 1px solid rgba(0, 0, 0, 0.06);
           border-radius: 20px;
           box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
@@ -523,9 +518,7 @@ export default function DashboardPage() {
           text-decoration: none;
           white-space: nowrap;
         }
-        .profile-link:hover {
-          background: #e4efff;
-        }
+        .profile-link:hover { background: #e4efff; }
 
         /* Choice Cards */
         .checks {
@@ -612,7 +605,7 @@ export default function DashboardPage() {
         .row { display: flex; gap: 12px; }
         .half { flex: 1; }
 
-        /* Aktionen – mehr Abstand nach oben, Button hellgrün + ✅, zentriert */
+        /* Aktionen – mehr Abstand nach oben, Button hellgrün + ✅, MITTIG */
         .actions {
           display: flex;
           justify-content: flex-end;
@@ -624,36 +617,21 @@ export default function DashboardPage() {
         .submit-btn.confirm {
           display: inline-flex;
           align-items: center;
+          justify-content: center;  /* Text/Emoji zentriert im Button */
           gap: 10px;
           padding: 16px 26px;
           border-radius: 999px;
           border: 1px solid #16a34a;
-          background: linear-gradient(135deg, #41e39f 0%, #22c55e 60%, #16a34a 100%);
-          color: #ffffff; /* weißer Text */
+          background: linear-gradient(135deg, #34d399 0%, #22c55e 100%); /* helleres Grün */
+          color: #ffffff;                /* weißer Text */
           font-weight: 900;
           letter-spacing: .2px;
           box-shadow: 0 14px 36px rgba(34, 197, 94, .40), inset 0 1px 0 rgba(255,255,255,.18);
           transition: transform .12s ease, box-shadow .18s ease, filter .18s ease, background .18s ease;
-          position: relative;
-          overflow: hidden;
+          min-width: 260px;              /* wirkt heroischer */
+          text-align: center;
         }
         .submit-btn.confirm .label { font-size: 17px; }
-
-        /* subtiler Shine-Effekt */
-        .submit-btn.confirm::after {
-          content: "";
-          position: absolute;
-          top: -120%;
-          left: -30%;
-          width: 60%;
-          height: 300%;
-          transform: rotate(25deg);
-          background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.22) 45%, rgba(255,255,255,0) 100%);
-          transition: transform .6s ease;
-        }
-        .submit-btn.confirm:hover::after {
-          transform: translateX(220%) rotate(25deg);
-        }
         .submit-btn.confirm:hover {
           transform: translateY(-1px);
           filter: brightness(1.04);
@@ -698,7 +676,7 @@ export default function DashboardPage() {
           .actions { justify-content: stretch; }
           .actions.center { justify-content: center; }
           .actions.roomy { margin-top: 22px; }
-          .submit-btn.confirm { width: 100%; justify-content: center; }
+          .submit-btn.confirm { width: 100%; }
           .check-fly {
             bottom: 100px;
             animation: checkFlyMobile .9s cubic-bezier(.18,.64,.32,1) forwards;
