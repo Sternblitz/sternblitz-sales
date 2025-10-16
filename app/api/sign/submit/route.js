@@ -152,32 +152,33 @@ export async function POST(req) {
 
     // 1) Order anlegen (erst mal ohne URLs, damit wir IDs haben)
     const sb = supabaseAdmin();
-    const { data: orderInsert, error: orderErr } = await sb
-      .from("orders")
-      .insert([{
-        business_name: company || null,
-        google_profile_url: googleUrl || null,
-        contact_name: [firstName, lastName].filter(Boolean).join(" ") || null,
-        contact_email: email || null,
-        contact_phone: phone || null,
+   const { data: orderInsert, error: orderErr } = await sb
+  .from("orders")
+  .insert([{
+    business_name: company || null,
+    // Fallback: wenn keine echte URL, dann den sichtbaren Profil-String speichern
+    google_profile_url: (googleUrl && googleUrl.trim()) || sanitize(googleProfile) || "-",
+    contact_name: [firstName, lastName].filter(Boolean).join(" ") || null,
+    contact_email: email || null,
+    contact_phone: phone || null,
 
-        simulator_payload: counts ? { counts } : null,
-        selected_option: mapRemovalOption(selectedOption),
-        individual_notes: customNotes || null,
+    simulator_payload: counts ? { counts } : null,
+    selected_option: mapRemovalOption(selectedOption),
+    individual_notes: customNotes || null,
 
-        ip_address: ipAddress || null,
-        device_info: deviceInfo || null,
+    ip_address: ipAddress || null,
+    device_info: deviceInfo || null,
 
-        sales_rep_id: salesRepId || null,
-        team_id: teamId || null,
+    sales_rep_id: salesRepId || null,
+    team_id: teamId || null,
 
-        status: "in_progress",
-        payment_status: "uninitialized",
+    status: "in_progress",
+    payment_status: "uninitialized",
 
-        referral_code_used: repCode || null
-      }])
-      .select("id")
-      .single();
+    referral_code_used: repCode || null
+  }])
+  .select("id")
+  .single();
 
     if (orderErr) {
       console.error(orderErr);
