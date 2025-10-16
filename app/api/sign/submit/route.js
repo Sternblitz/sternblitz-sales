@@ -10,7 +10,20 @@ function dataUrlToUint8(signaturePng) {
   const bin = Buffer.from(base64, "base64");
   return new Uint8Array(bin);
 }
+function toWinAnsi(text = "") {
+  // Emojis und Symbols raus – WinAnsi sicher
+  return String(text).replace(
+    /[\u{1F300}-\u{1FAFF}\u{1F000}-\u{1F9FF}\u{2600}-\u{27BF}]/gu,
+    ""
+  );
+}
 
+function labelFor(opt) {
+  return opt === "123" ? "1–3 Sterne löschen"
+       : opt === "12"  ? "1–2 Sterne löschen"
+       : opt === "1"   ? "1 Stern löschen"
+       : "Individuelle Löschungen";
+}
 function labelFor(opt) {
   return opt === "123" ? "1–3 ⭐ löschen"
        : opt === "12"  ? "1–2 ⭐ löschen"
@@ -28,36 +41,32 @@ function chosenCount(selectedOption, counts) {
 
 async function buildPdf(p, sigBytes) {
   const pdf = await PDFDocument.create();
-  const page = pdf.addPage([595, 842]); // A4
+  const page = pdf.addPage([595, 842]);
   const { height } = page.getSize();
-
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
 
+  const draw = (txt, opts) => page.drawText(toWinAnsi(txt), opts);
+
   let y = height - 70;
-  page.drawText("Auftragsbestätigung Sternblitz", {
-    x: 50, y, font: bold, size: 20, color: rgb(0, 0, 0),
-  });
+  draw("Auftragsbestätigung Sternblitz", { x: 50, y, font: bold, size: 20, color: rgb(0,0,0) });
 
   y -= 20;
-  page.drawText(
-    "Hiermit bestätige ich den Auftrag zur Löschung meiner negativen Google-Bewertungen.",
-    { x: 50, y, font, size: 11, color: rgb(0, 0, 0) }
-  );
+  draw("Hiermit bestätige ich den Auftrag zur Löschung meiner negativen Google-Bewertungen.",
+       { x: 50, y, font, size: 11, color: rgb(0,0,0) });
 
   y -= 25;
-  const bullets = [
+  for (const b of [
     "Fixpreis: 299 € (einmalig)",
     "Zahlung erst nach Löschung (von mind. 90 % der Bewertungen)",
     "Dauerhafte Entfernung",
-  ];
-  for (const b of bullets) {
-    page.drawText("• " + b, { x: 50, y, font, size: 11, color: rgb(0, 0, 0) });
+  ]) {
+    draw("• " + b, { x: 50, y, font, size: 11, color: rgb(0,0,0) });
     y -= 16;
   }
 
   y -= 10;
-  page.drawText("Zusammenfassung", { x: 50, y, font: bold, size: 12, color: rgb(0, 0, 0) });
+  draw("Zusammenfassung", { x: 50, y, font: bold, size: 12, color: rgb(0,0,0) });
   y -= 16;
 
   const lines = [
@@ -70,34 +79,36 @@ async function buildPdf(p, sigBytes) {
     ["Telefon", p.phone],
   ];
   for (const [k, v] of lines) {
-    page.drawText(`${k}:`, { x: 50, y, font: bold, size: 10, color: rgb(0, 0, 0) });
-    page.drawText(String(v || "—"), { x: 160, y, font, size: 10, color: rgb(0, 0, 0) });
+    draw(`${k}:`, { x: 50, y, font: bold, size: 10, color: rgb(0,0,0) });
+    draw(String(v ?? "—"), { x: 180, y, font, size: 10, color: rgb(0,0,0) });
     y -= 14;
   }
 
-  // Gewählte Option inkl. Menge
-  const picked = chosenCount(p.selectedOption, p.counts);
+  // gewählte Option + Zähler
+  const picked = p.selectedOption === "123" ? p?.counts?.c123
+               : p.selectedOption === "12"  ? p?.counts?.c12
+               : p.selectedOption === "1"   ? p?.counts?.c1
+               : null;
+
   y -= 6;
-  page.drawText("Gewählte Löschung:", { x: 50, y, font: bold, size: 10, color: rgb(0,0,0) });
-  page.drawText(
-    `${labelFor(p.selectedOption)}${picked != null ? ` — Entfernte: ${Number(picked).toLocaleString("de-DE")}` : ""}`,
-    { x: 160, y, font, size: 10, color: rgb(0,0,0) }
-  );
+  draw("Gewählte Löschung:", { x: 50, y, font: bold, size: 10, color: rgb(0,0,0) });
+  draw(`${labelFor(p.selectedOption)}${picked != null ? ` — Entfernte: ${Number(picked).toLocaleString("de-DE")}` : ""}`,
+       { x: 180, y, font, size: 10, color: rgb(0,0,0) });
   y -= 14;
 
-  // Kompakte Übersicht aller Zähler
   if (p.counts) {
     const c123 = Number(p.counts.c123 ?? 0).toLocaleString("de-DE");
     const c12  = Number(p.counts.c12  ?? 0).toLocaleString("de-DE");
     const c1   = Number(p.counts.c1   ?? 0).toLocaleString("de-DE");
-    page.drawText("Zähler gesamt:", { x: 50, y, font: bold, size: 10, color: rgb(0,0,0) });
-    page.drawText(`1–3⭐: ${c123}   |   1–2⭐: ${c12}   |   1⭐: ${c1}`,
-      { x: 160, y, font, size: 10, color: rgb(0,0,0) });
+    draw("Zähler gesamt:", { x: 50, y, font: bold, size: 10, color: rgb(0,0,0) });
+    // keine ⭐ mehr
+    draw(`1–3: ${c123}   |   1–2: ${c12}   |   1: ${c1}`,
+         { x: 180, y, font, size: 10, color: rgb(0,0,0) });
     y -= 14;
   }
 
   y -= 12;
-  page.drawText("Unterschrift:", { x: 50, y, font: bold, size: 11, color: rgb(0, 0, 0) });
+  draw("Unterschrift:", { x: 50, y, font: bold, size: 11, color: rgb(0,0,0) });
   y -= 100;
 
   if (sigBytes?.length) {
@@ -106,11 +117,9 @@ async function buildPdf(p, sigBytes) {
   }
 
   y -= 20;
-  page.drawText(`Datum: ${new Date().toLocaleString("de-DE")}`, {
-    x: 50, y, font, size: 10, color: rgb(0, 0, 0)
-  });
+  draw(`Datum: ${new Date().toLocaleString("de-DE")}`, { x: 50, y, font, size: 10, color: rgb(0,0,0) });
 
-  return await pdf.save(); // Uint8Array
+  return await pdf.save();
 }
 
 export async function POST(req) {
