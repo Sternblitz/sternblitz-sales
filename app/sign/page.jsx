@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Script from "next/script";
+import { supabase as supabaseClient } from "@/lib/supabaseClient"; // ⬅️ HIER, ganz oben
 
 export default function SignPage() {
   // ===== Canvas (Signatur) =====
