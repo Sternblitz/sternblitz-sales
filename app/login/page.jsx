@@ -1,14 +1,64 @@
 // app/login/page.jsx
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
+export const dynamic = "force-dynamic";
+
 export default function LoginPage() {
+  const router = useRouter();
+  const [redirectTarget, setRedirectTarget] = useState("/dashboard");
+
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [err, setErr] = useState(null);
   const [ok, setOk] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const raw = params.get("redirect");
+        if (raw) {
+          const decoded = decodeURIComponent(raw);
+          if (decoded.startsWith("/")) {
+            setRedirectTarget(decoded);
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const checkSession = async () => {
+      try {
+        const { data } = await supabase().auth.getSession();
+        if (active && data?.session) {
+          router.replace(redirectTarget);
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+
+    checkSession();
+
+    const { data: listener } = supabase().auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        router.replace(redirectTarget);
+      }
+    });
+
+    return () => {
+      active = false;
+      listener?.subscription?.unsubscribe?.();
+    };
+  }, [router, redirectTarget]);
 
   const onLogin = async (e) => {
     e.preventDefault();
@@ -33,11 +83,7 @@ export default function LoginPage() {
     }
 
     setOk("Login erfolgreich. Weiterleiten…");
-
-    // HARTE Weiterleitung nach kurzer Wartezeit
-    setTimeout(() => {
-      window.location.assign("/dashboard");
-    }, 300);
+    router.replace(redirectTarget);
   };
 
   return (
