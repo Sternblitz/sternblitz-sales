@@ -1,6 +1,6 @@
 // app/layout.js
-import "./globals.css";
-import RepTracker from "./components/RepTracker";
+import "./globals.css"; // keep if this file exists; see note below
+import RepTracker from "../components/RepTracker"; // <-- FIXED PATH
 
 export const metadata = {
   title: "Sternblitz Sales",
@@ -18,7 +18,7 @@ export default function RootLayout({ children }) {
             'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial',
         }}
       >
-        {/* Erfasst den rep= Code beim ersten Seitenaufruf */}
+        {/* Liest ?rep=... und speichert sessionStorage: sb_rep_code */}
         <RepTracker />
         {children}
       </body>
