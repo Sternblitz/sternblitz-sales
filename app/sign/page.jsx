@@ -197,56 +197,71 @@ export default function SignPage() {
   };
 
   // ===== Submit (PDF erzeugen + API call) =====
-  const submit = async () => {
-    if (!agree) {
-      alert("Bitte AGB & Datenschutz bestätigen.");
-      return;
-    }
-    const c = canvasRef.current;
-    if (!c) {
-      alert("Signaturfeld nicht verfügbar.");
-      return;
-    }
-    const blank = document.createElement("canvas");
-    blank.width = c.width;
-    blank.height = c.height;
-    if (c.toDataURL() === blank.toDataURL()) {
-      alert("Bitte unterschreiben.");
-      return;
-    }
+  // ⬇️ ersetze NUR die submit-Funktion
+import { supabase as supabaseClient } from "@/lib/supabaseClient"; // ganz oben bei den Imports ergänzen
 
-    setSaving(true);
+const submit = async () => {
+  if (!agree) {
+    alert("Bitte AGB & Datenschutz bestätigen.");
+    return;
+  }
+  const c = canvasRef.current;
+  const blank = document.createElement("canvas");
+  blank.width = c.width;
+  blank.height = c.height;
+  if (c.toDataURL() === blank.toDataURL()) {
+    alert("Bitte unterschreiben.");
+    return;
+  }
+
+  setSaving(true);
+  try {
+    const signaturePng = c.toDataURL("image/png");
+
+    // aktuell eingeloggter User (falls vorhanden)
+    let sourceAccountId = null;
     try {
-      const signaturePng = c.toDataURL("image/png");
+      const sb = supabaseClient();
+      const { data } = await sb.auth.getUser();
+      sourceAccountId = data?.user?.id || null;
+    } catch {}
 
-      const res = await fetch("/api/sign/submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          googleProfile: summary.googleProfile,
-          selectedOption: summary.selectedOption,
-          company: summary.company,
-          firstName: summary.firstName,
-          lastName: summary.lastName,
-          email: summary.email,
-          phone: summary.phone,
-          signaturePng,
-          counts: summary.counts, // wichtig: 1–3 / 1–2 / 1
-          // rep_code/source_account_id später ergänzbar
-        }),
-      });
+    // rep_code aus sessionStorage (setzt dein RepTracker)
+    let repCode = null;
+    try {
+      repCode = sessionStorage.getItem("sb_rep_code") || null;
+    } catch {}
 
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "Unbekannter Fehler");
+    const res = await fetch("/api/sign/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        googleProfile: summary.googleProfile,
+        selectedOption: summary.selectedOption,
+        company: summary.company,
+        firstName: summary.firstName,
+        lastName: summary.lastName,
+        email: summary.email,
+        phone: summary.phone,
+        signaturePng,
+        counts: summary.counts,       // 1–3 / 1–2 / 1 Stückzahl
+        rep_code: repCode,            // <- neu
+        source_account_id: sourceAccountId, // <- neu
+      }),
+    });
 
-      alert("Auftragsbestätigung erstellt.\nPDF-Link:\n" + json.pdfUrl);
-      // optional: router.push(`/thanks?pdf=${encodeURIComponent(json.pdfUrl)}`)
-    } catch (e) {
-      alert("Fehler: " + (e?.message || String(e)));
-    } finally {
-      setSaving(false);
-    }
-  };
+    const json = await res.json();
+    if (!res.ok) throw new Error(json?.error || "Unbekannter Fehler");
+
+    alert("Auftragsbestätigung erstellt.");
+    // Optional: Danke-Seite
+    // router.push(`/thanks`)
+  } catch (e) {
+    alert("Fehler: " + (e?.message || String(e)));
+  } finally {
+    setSaving(false);
+  }
+};
 
   // Anzeige
   const chosenLabel = optionLabel(summary.selectedOption);
