@@ -28,13 +28,18 @@ function chosenCount(opt, counts) {
   if (opt === "1")   return c.c1   ?? null;
   return null;
 }
-function publicFromPath(path) {
-  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!base || !path) return null;
-  return `${base}/storage/v1/object/public/contracts/${encodeURIComponent(path)}`;
+
+// Versucht, eine öffentliche URL aus Supabase für pdf_path zu holen,
+// ohne process.env im Client zu verwenden.
+async function getPublicUrlForPath(sb, path) {
+  try {
+    const { data } = sb.storage.from("contracts").getPublicUrl(path);
+    return data?.publicUrl || null;
+  } catch {
+    return null;
+  }
 }
 
-// ============ PAGE ============
 export default function OrdersPage() {
   const router = useRouter();
   const sp = useSearchParams();
@@ -68,7 +73,6 @@ export default function OrdersPage() {
         // 1) eingeloggten User holen
         const { data: authData, error: authErr } = await sb.auth.getUser();
         if (authErr) throw authErr;
-
         const userId = authData?.user?.id || null;
         if (!userId) {
           setRows([]);
@@ -76,7 +80,7 @@ export default function OrdersPage() {
           return;
         }
 
-        // 2) eigene Leads laden
+        // 2) eigene Leads laden (mit Zeitfilter, falls gesetzt)
         let query = sb
           .from("leads")
           .select(`
@@ -94,17 +98,26 @@ export default function OrdersPage() {
             pdf_path,
             pdf_signed_url
           `)
-          .eq("source_account_id", userId) // << nur eigene
+          .eq("source_account_id", userId)
           .order("created_at", { ascending: false })
           .limit(500);
 
-        if (gteISO && ltISO) {
-          query = query.gte("created_at", gteISO).lt("created_at", ltISO);
-        }
+        if (gteISO && ltISO) query = query.gte("created_at", gteISO).lt("created_at", ltISO);
 
         const { data, error } = await query;
         if (error) throw error;
-        if (!cancelled) setRows(data || []);
+
+        // 3) fehlende PDF-URLs (nur pdf_path vorhanden) clientseitig auflösen
+        const withUrls = await Promise.all((data || []).map(async (r) => {
+          if (r.pdf_signed_url) return r; // schon vorhanden
+          if (r.pdf_path) {
+            const url = await getPublicUrlForPath(sb, r.pdf_path);
+            return { ...r, pdf_signed_url: url }; // in UI einheitlich als pdf_signed_url nutzen
+          }
+          return r;
+        }));
+
+        if (!cancelled) setRows(withUrls);
       } catch (e) {
         if (!cancelled) setErr(e?.message || String(e));
       } finally {
@@ -137,7 +150,7 @@ export default function OrdersPage() {
           {rows.map((r) => {
             const label = chosenLabel(r.selected_option);
             const count = chosenCount(r.selected_option, r.counts);
-            const pdfUrl = r.pdf_signed_url || (r.pdf_path ? publicFromPath(r.pdf_path) : null);
+            const pdfUrl = r.pdf_signed_url || null;
 
             return (
               <article key={r.id} style={cardStyle}>
