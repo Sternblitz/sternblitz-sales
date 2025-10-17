@@ -1,8 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { useSearchParams } from "next/navigation";
-
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -10,13 +8,21 @@ export default function LoginPage() {
   const [err, setErr] = useState(null);
   const [ok, setOk] = useState(null);
   const [loading, setLoading] = useState(false);
-  const sp = useSearchParams();
-const redirect = sp?.get("redirect") || "/dashboard";
+  const [redirectTo, setRedirectTo] = useState("/dashboard");
 
+  // schon eingeloggt? -> weiterleiten
   useEffect(() => {
+    // redirect-Param defensiv aus URL lesen (ohne next/navigation)
+    try {
+      const url = new URL(window.location.href);
+      const r = url.searchParams.get("redirect");
+      if (r) setRedirectTo(r);
+    } catch {}
+
     supabase().auth.getSession().then(({ data }) => {
-      if (data?.session) window.location.href = "/dashboard";
+      if (data?.session) window.location.href = redirectTo;
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onLogin = async (e) => {
@@ -28,13 +34,12 @@ const redirect = sp?.get("redirect") || "/dashboard";
     setLoading(false);
     if (error) { setErr(error.message); return; }
     setOk("Login erfolgreich. Weiterleiten…");
-    window.location.href = redirect;
+    window.location.href = redirectTo;
   };
 
   return (
     <main className="login-bg">
       <section className="login-box">
-        {/* Kopfbereich */}
         <div className="head">
           <img
             src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/68ad4679902a5d278c4cf0bc_Group%202085662922-p-500.png"
@@ -45,7 +50,6 @@ const redirect = sp?.get("redirect") || "/dashboard";
           <p className="subtitle">Die All-in-One-Lösung</p>
         </div>
 
-        {/* Formular */}
         <form onSubmit={onLogin} className="form">
           <h2 className="login-text">Login</h2>
 
@@ -91,63 +95,23 @@ const redirect = sp?.get("redirect") || "/dashboard";
                       center/cover no-repeat;
           font-family: 'Poppins', ui-sans-serif, system-ui, -apple-system;
         }
-
         .login-box {
           width: 100%;
-          max-width: 460px;            /* schmaler = hübscher/zentriert */
+          max-width: 460px;
           background: #fff;
           border-radius: 18px;
           padding: 26px 20px 22px;
           box-shadow: 0 6px 30px rgba(0,0,0,.12);
-          box-sizing: border-box;      /* kein Overflow */
+          box-sizing: border-box;
         }
-
-        .head {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          margin-bottom: 14px;         /* kleinerer Abstand zum Formular */
-        }
+        .head { display: flex; flex-direction: column; align-items: center; margin-bottom: 14px; }
         .logo { height: 68px; width: auto; margin-bottom: 6px; }
-        .headline {
-          font-family: 'Outfit', sans-serif;
-          font-size: 24px;
-          font-weight: 800;
-          color: #010101;
-          margin: 0;
-          line-height: 1.15;           /* kompakter */
-          text-align: center;
-        }
-        .subtitle {
-          font-size: 14.5px;
-          color: rgba(1,1,1,.75);
-          font-weight: 600;
-          margin: 6px 0 0;             /* dichter an der Headline */
-          line-height: 1.3;
-        }
+        .headline { font-family: 'Outfit', sans-serif; font-size: 24px; font-weight: 800; color: #010101; margin: 0; line-height: 1.15; text-align: center; }
+        .subtitle { font-size: 14.5px; color: rgba(1,1,1,.75); font-weight: 600; margin: 6px 0 0; line-height: 1.3; }
 
-        .form {
-          width: 100%;
-          max-width: 360px;            /* zentrierte schmale Inputs */
-          margin: 8px auto 0;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-        .login-text {
-          font-size: 20px;             /* größerer „Login“-Text */
-          font-weight: 800;
-          color: #000;
-          margin: 0 0 8px 0;
-          text-align: center;
-          line-height: 1.1;
-        }
-        .label {
-          font-size: 12.5px;
-          color: #333;
-          margin-top: 6px;
-          line-height: 1.2;
-        }
+        .form { width: 100%; max-width: 360px; margin: 8px auto 0; display: flex; flex-direction: column; gap: 8px; }
+        .login-text { font-size: 20px; font-weight: 800; color: #000; margin: 0 0 8px 0; text-align: center; line-height: 1.1; }
+        .label { font-size: 12.5px; color: #333; margin-top: 6px; line-height: 1.2; }
         .input {
           width: 100%;
           padding: 12px 14px;
@@ -158,10 +122,7 @@ const redirect = sp?.get("redirect") || "/dashboard";
           transition: box-shadow .18s ease, border-color .18s ease;
           box-sizing: border-box;
         }
-        .input:focus {
-          border-color: #49a84c;
-          box-shadow: 0 0 0 2px rgba(73,168,76,.22);
-        }
+        .input:focus { border-color: #49a84c; box-shadow: 0 0 0 2px rgba(73,168,76,.22); }
 
         .msg { margin: 6px 0 0; font-size: 14px; text-align: center; }
         .msg.err { color: #dc2626; }
@@ -175,7 +136,7 @@ const redirect = sp?.get("redirect") || "/dashboard";
           background: linear-gradient(90deg, #000, #333);
           color: #fff;
           font-weight: 700;
-          font-size: 16.5px;           /* größerer Button-Text */
+          font-size: 16.5px;
           border: 0;
           cursor: pointer;
           transition: transform .05s ease, filter .2s ease;
@@ -183,13 +144,7 @@ const redirect = sp?.get("redirect") || "/dashboard";
         .cta:hover { filter: brightness(1.06); }
         .cta:active { transform: translateY(1px); }
 
-        .hint {
-          margin-top: 12px;
-          font-size: 12.5px;
-          color: #6b7280;
-          text-align: center;
-          line-height: 1.2;            /* straffer Zeilenabstand */
-        }
+        .hint { margin-top: 12px; font-size: 12.5px; color: #6b7280; text-align: center; line-height: 1.2; }
 
         @media (max-width: 480px) {
           .login-box { max-width: 94vw; padding: 22px 16px 18px; border-radius: 14px; }
