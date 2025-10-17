@@ -209,68 +209,93 @@ export async function POST(req) {
     const ATTACH = String(process.env.EMAIL_ATTACH_PDF || "").toLowerCase() === "true";
 
     const subject = "Deine Auftragsbestätigung – Sternblitz";
-    const chosenLabel = labelFor(selectedOption);
-    const c123 = Number(counts?.c123 ?? 0).toLocaleString("de-DE");
-    const c12  = Number(counts?.c12  ?? 0).toLocaleString("de-DE");
-    const c1   = Number(counts?.c1   ?? 0).toLocaleString("de-DE");
-    const promo = makePromoCode(firstName, lastName);
 
-    // Platzhalter Referral-Link – später echt befüllen
-    const referralLink = `https://sternblitz.de/empfehlen?ref=DEMO`;
+// Auswahl + Stückzahl
+const chosenLabel = labelFor(selectedOption);
+const selectedCount = Number(chosenCount(selectedOption, counts) ?? 0);
 
-    const html = `
-  <div style="font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;line-height:1.6;color:#0f172a">
-    <p>Hallo ${firstName || ""}!</p>
+// Promo + Refer-a-Friend
+const promo = makePromoCode(firstName, lastName);
+const referralLink = `https://sternblitz.de/empfehlen?ref=DEMO`; // später dynamisch
+const pdfLine = (String(process.env.EMAIL_ATTACH_PDF || "").toLowerCase() === "true")
+  ? "Deine Auftragsbestätigung (PDF) findest du im Anhang."
+  : "Deine Auftragsbestätigung (PDF) wurde erstellt.";
 
-    <p>Danke für deinen Auftrag. Wir starten jetzt mit der Entfernung der ausgewählten Bewertungen.</p>
+// ---------- neue HTML-Mail ----------
+const html = `
+  <div style="font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;line-height:1.58;color:#0f172a;background:#ffffff;padding:0;margin:0">
+    <div style="max-width:640px;margin:0 auto;padding:28px 20px 8px">
+      <h1 style="margin:0 0 10px;font-size:20px;letter-spacing:.2px">Hallo ${firstName || ""}!</h1>
+      <p style="margin:0 0 16px">danke für deinen Auftrag. Wir starten jetzt mit der Entfernung der ausgewählten Bewertungen.</p>
 
-    <p><strong>Auswahl:</strong> ${chosenLabel}<br/>
-       <strong>Gesamt:</strong> 1–3: ${c123} &nbsp;|&nbsp; 1–2: ${c12} &nbsp;|&nbsp; 1: ${c1}</p>
+      <div style="border:1px solid #e5e7eb;border-radius:14px;padding:14px 16px;margin:18px 0;background:#f9fbff">
+        <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Google-Profil</div>
+        <div style="font-weight:700">${googleProfile ? googleProfile : "—"}</div>
+      </div>
 
-    <p>Deine Auftragsbestätigung (PDF) findest du hier:<br/>
-      <a href="${pdfUrl}" target="_blank" rel="noopener" style="color:#0b6cf2">${pdfUrl}</a>
-    </p>
+      <div style="border:1px solid #e5e7eb;border-radius:14px;padding:14px 16px;margin:12px 0;background:#ffffff">
+        <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Auswahl</div>
+        <div style="font-weight:700">${chosenLabel} → ${Number.isFinite(selectedCount) ? selectedCount : "—"} Stück</div>
+      </div>
 
-    <p style="margin:20px 0 10px;font-weight:700">Freunde werben & sparen</p>
-    <p>Empfehle Sternblitz weiter und erhalte pro erfolgreicher Empfehlung einen
-       <strong>25€ Amazon-Gutschein</strong>. Deine Freunde sparen mit deinem persönlichen Code:</p>
+      <p style="margin:16px 0">${pdfLine}</p>
 
-    <div style="display:inline-block;padding:10px 14px;border:1px solid #e5e7eb;border-radius:10px;background:#f7fafc">
-      <div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#64748b">Promocode</div>
-      <div style="font-size:18px;font-weight:800">${promo}</div>
-      <div style="font-size:12px;color:#64748b">Nur 5× nutzbar in den nächsten 30 Tagen</div>
+      <div style="margin:26px 0 10px;font-weight:800;font-size:16px">Freunde werben & sparen</div>
+      <p style="margin:0 0 12px">
+        Teile Sternblitz mit Freund:innen – <strong>sie sparen 25&nbsp;€</strong> auf die Auftragspauschale
+        und du erhältst für jede erfolgreiche Empfehlung einen <strong>25&nbsp;€ Amazon-Gutschein</strong>.
+      </p>
+
+      <div style="display:inline-block;padding:12px 14px;border:1px solid #e5e7eb;border-radius:12px;background:#f7fafc;margin-bottom:10px">
+        <div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#64748b">Dein Promocode</div>
+        <div style="font-size:20px;font-weight:900;letter-spacing:.6px">${promo}</div>
+        <div style="font-size:12px;color:#64748b">Gültig 30 Tage · max. 5 Einlösungen</div>
+      </div>
+
+      <div style="margin:6px 0 22px;font-size:14px">
+        Teilen-Link (Platzhalter): 
+        <a href="${referralLink}" target="_blank" rel="noopener" style="color:#0b6cf2;text-decoration:none">${referralLink}</a>
+      </div>
+
+      <p style="color:#64748b;font-style:italic;margin-top:6px">(Dies ist eine automatische Mail)</p>
     </div>
 
-    <p style="margin-top:10px">Teilen-Link (Platzhalter):<br/>
-      <a href="${referralLink}" target="_blank" rel="noopener" style="color:#0b6cf2">${referralLink}</a>
-    </p>
-
-    <p style="color:#64748b;font-style:italic;margin-top:18px">(Dies ist eine automatische Mail)</p>
-
-    <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0"/>
-
-    <div style="font-weight:800;margin-bottom:6px">Sternblitz</div>
-    <div>📧 <a href="mailto:info@sternblitz.de" style="color:#0b6cf2;text-decoration:none">info@sternblitz.de</a></div>
-    <div>🌐 <a href="https://sternblitz.de" style="color:#0b6cf2;text-decoration:none">sternblitz.de</a></div>
-
-    <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0"/>
+    <div style="max-width:640px;margin:0 auto;padding:0 20px 28px">
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:14px 0 18px"/>
+      <table role="presentation" style="width:100%;border-collapse:collapse">
+        <tr>
+          <td style="font-weight:900;padding:0 0 6px">Sternblitz Auftragsservice</td>
+        </tr>
+        <tr>
+          <td style="padding:0 0 4px">📧 
+            <a href="mailto:info@sternblitz.de" style="color:#0b6cf2;text-decoration:none">info@sternblitz.de</a>
+          </td>
+        </tr>
+        <tr>
+          <td>🌐 
+            <a href="https://sternblitz.de" style="color:#0b6cf2;text-decoration:none">sternblitz.de</a>
+          </td>
+        </tr>
+      </table>
+    </div>
   </div>
-    `.trim();
+`.trim();
 
-    const text =
-      `Hallo ${firstName || ""}!\n\n` +
-      `Danke für deinen Auftrag. Wir starten jetzt mit der Entfernung der ausgewählten Bewertungen.\n\n` +
-      `Auswahl: ${chosenLabel}\n` +
-      `Gesamt: 1–3: ${c123} | 1–2: ${c12} | 1: ${c1}\n\n` +
-      `PDF: ${pdfUrl}\n\n` +
-      `Freunde werben & sparen:\n` +
-      `Promocode: ${promo} (5× nutzbar in 30 Tagen)\n` +
-      `Teilen-Link: ${referralLink}\n\n` +
-      `(Dies ist eine automatische Mail)\n\n` +
-      `Sternblitz\n` +
-      `info@sternblitz.de\n` +
-      `sternblitz.de\n`;
-
+// ---------- neue TEXT-Fallback-Version ----------
+const text =
+  `Hallo ${firstName || ""}!\n\n` +
+  `Danke für deinen Auftrag. Wir starten jetzt mit der Entfernung der ausgewählten Bewertungen.\n\n` +
+  `Google-Profil: ${googleProfile || "—"}\n` +
+  `Auswahl: ${chosenLabel} → ${Number.isFinite(selectedCount) ? selectedCount : "—"} Stück\n\n` +
+  `${pdfLine}\n\n` +
+  `Freunde werben & sparen:\n` +
+  `• Deine Freunde sparen 25 € auf die Auftragspauschale\n` +
+  `• Du erhältst pro erfolgreicher Empfehlung einen 25 € Amazon-Gutschein\n` +
+  `Promocode: ${promo} (30 Tage gültig, max. 5 Einlösungen)\n` +
+  `Teilen-Link (Platzhalter): ${referralLink}\n\n` +
+  `(Dies ist eine automatische Mail)\n\n` +
+  `Sternblitz Auftragsservice\n` +
+  `info@sternblitz.de · sternblitz.de\n`;
     if (process.env.RESEND_API_KEY && isValidFromOrReplyTo(FROM)) {
       const mailPayload = {
         from: FROM,
