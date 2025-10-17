@@ -1,6 +1,7 @@
 // app/api/orders/list/route.js
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseServer";
+import { cookies as getCookies } from "next/headers";
+import { createServerClient } from "@supabase/auth-helpers-nextjs";
 
 // helpers
 function startOfToday() { const d = new Date(); d.setHours(0,0,0,0); return d; }
@@ -23,28 +24,61 @@ export async function GET(req) {
       gte = startOfNDaysAgo(6); lt = new Date();
     }
 
-    const sb = supabaseAdmin();
-    let q = sb
-      .from("leads")
-      .select(`
-        id,
-        created_at,
-        google_profile,
-        google_url,
-        company,
-        first_name,
-        last_name,
-        email,
-        phone,
-        selected_option,
-        counts,
-        pdf_path,
-        pdf_signed_url
-      `)
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !anonKey) {
+      throw new Error("Missing Supabase configuration");
+    }
+
+    const requestCookies = req.cookies ?? getCookies();
+    const supabase = createServerClient(supabaseUrl, anonKey, {
+      cookies: {
+        get(name) {
+          const cookie = requestCookies.get?.(name);
+          if (!cookie) return undefined;
+          if (typeof cookie === "string") return cookie;
+          return cookie.value;
+        },
+        set() {},
+        remove() {},
+      },
+    });
+
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError) throw userError;
+    const user = userData?.user;
+    if (!user) {
+      return NextResponse.json({ error: "Nicht eingeloggt" }, { status: 401 });
+    }
+
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("role, team_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const role = user.user_metadata?.role || profileData?.role || "sales";
+    const teamId = profileData?.team_id || null;
+
+    let q = supabase
+      .from("orders")
+      .select("*")
       .order("created_at", { ascending: false })
       .limit(200);
 
-    if (gte && lt) q = q.gte("created_at", toISO(gte)).lt("created_at", toISO(lt));
+    if (gte && lt) {
+      q = q.gte("created_at", toISO(gte)).lt("created_at", toISO(lt));
+    }
+
+    if (role === "sales") {
+      q = q.eq("sales_rep_id", user.id);
+    } else if (role === "team_lead") {
+      if (teamId) {
+        q = q.eq("team_id", teamId);
+      } else {
+        q = q.eq("sales_rep_id", user.id);
+      }
+    }
 
     const { data, error } = await q;
     if (error) {
