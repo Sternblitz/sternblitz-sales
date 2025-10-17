@@ -50,10 +50,9 @@ export default function LoginPage() {
 
     setOk("Login erfolgreich. Weiterleiten…");
 
-    const target = redirectTarget;
-    setTimeout(() => {
-      router.replace(target);
-    }, 200);
+    const target = redirectTarget || "/dashboard";
+    router.replace(target);
+    router.refresh();
   };
 
   return (
