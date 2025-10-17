@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabaseServer";
+import { supabaseServerAuth } from "@/lib/supabaseServerAuth";
 
 export const runtime = "nodejs"; // Node, nicht Edge
 
@@ -143,6 +144,14 @@ async function buildPdf(p, sigBytes) {
 // ---------- Handler ----------
 export async function POST(req) {
   try {
+    const authClient = supabaseServerAuth();
+    const { data: userData, error: userError } = await authClient.auth.getUser();
+    if (userError) throw userError;
+    const user = userData?.user;
+    if (!user) {
+      return NextResponse.json({ error: "Nicht eingeloggt" }, { status: 401 });
+    }
+
     const body = await req.json();
     const {
       googleProfile,
@@ -155,7 +164,6 @@ export async function POST(req) {
       signaturePng,
       counts,                 // { c123, c12, c1 }
       rep_code = null,        // neu: wird mitgespeichert
-      source_account_id = null, // neu: wird mitgespeichert
     } = body || {};
 
     if (!googleProfile || !signaturePng) {
@@ -203,7 +211,7 @@ export async function POST(req) {
         pdf_path: key,            // Storage-Key
         pdf_signed_url: pdfUrl,   // public URL (weil Bucket public)
         rep_code,                 // neu
-        source_account_id,        // neu (z. B. supabase user id)
+        source_account_id: user.id,        // neu (z. B. supabase user id)
         option_chosen_count: picked ?? null,
       }]);
     } catch (e) {

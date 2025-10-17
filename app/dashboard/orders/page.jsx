@@ -1,105 +1,259 @@
-// app/api/orders/list/route.js
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/auth-helpers-nextjs";
-import { supabaseAdmin } from "@/lib/supabaseServer";
+"use client";
 
-export const runtime = "nodejs"; // kein Edge, damit pdf/Storage etc. sauber laufen
+import { useEffect, useMemo, useState } from "react";
 
-// Zeitraum-Helfer
-function startOfToday() { const d = new Date(); d.setHours(0,0,0,0); return d; }
-function startOfYesterday() { const d = startOfToday(); d.setDate(d.getDate()-1); return d; }
-function startOfNDaysAgo(n) { const d = startOfToday(); d.setDate(d.getDate()-n); return d; }
-const toISO = (d) => new Date(d).toISOString();
+const RANGE_OPTIONS = [
+  { value: "today", label: "Heute" },
+  { value: "yesterday", label: "Gestern" },
+  { value: "7d", label: "Letzte 7 Tage" },
+  { value: "all", label: "Alle" },
+];
 
-export async function GET(req) {
+const OPTION_LABELS = {
+  "123": "1–3 Sterne",
+  "12": "1–2 Sterne",
+  "1": "1 Stern",
+};
+
+function formatDate(value) {
+  if (!value) return "—";
   try {
-    // 1) User aus Cookies lesen (KEIN Redirect, nur API)
-    const cookieStore = cookies();
-    const sbClient = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      { cookies: { get: (key) => cookieStore.get(key)?.value } }
-    );
-    const { data: { user }, error: userErr } = await sbClient.auth.getUser();
-    if (userErr) throw userErr;
-    if (!user) return NextResponse.json({ error: "Nicht eingeloggt" }, { status: 401 });
-
-    // 2) Rolle bestimmen
-    // a) aus user.user_metadata.role (wenn du sie beim Onboarding setzt)
-    let role = user.user_metadata?.role || null;
-
-    // b) optional aus "profiles" Tabelle (falls vorhanden)
-    if (!role) {
-      try {
-        const { data: prof } = await supabaseAdmin()
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .maybeSingle();
-        role = prof?.role || null;
-      } catch {}
-    }
-
-    // Default-Rolle
-    if (!role) role = "sales"; // "admin" | "team_lead" | "sales"
-
-    // 3) Zeitraumfilter aus Query
-    const { searchParams } = new URL(req.url);
-    const range = (searchParams.get("range") || "").toString(); // "today" | "yesterday" | "7d" | ""
-    let gte = null, lt = null;
-    if (range === "today") {
-      gte = startOfToday(); lt = new Date(gte); lt.setDate(lt.getDate()+1);
-    } else if (range === "yesterday") {
-      gte = startOfYesterday(); lt = startOfToday();
-    } else if (range === "7d") {
-      gte = startOfNDaysAgo(6); lt = new Date();
-    }
-
-    // 4) Basis-Query
-    let q = supabaseAdmin()
-      .from("leads")
-      .select(`
-        id,
-        created_at,
-        google_profile,
-        google_url,
-        company,
-        first_name,
-        last_name,
-        email,
-        phone,
-        selected_option,
-        counts,
-        pdf_path,
-        pdf_signed_url,
-        source_account_id
-      `)
-      .order("created_at", { ascending: false })
-      .limit(300);
-
-    // Zeitraum anwenden
-    if (gte && lt) {
-      q = q.gte("created_at", toISO(gte)).lt("created_at", toISO(lt));
-    }
-
-    // 5) Rollen-Scoping
-    // - admin: sieht alles
-    // - sales: nur eigene (source_account_id = user.id)
-    // - team_lead: (hier erstmal wie sales ODER du hinterlegst später Team-Logik)
-    if (role === "sales") {
-      q = q.eq("source_account_id", user.id);
-    } else if (role === "team_lead") {
-      // QUICK WIN: zeig vorerst nur eigene. (Später: Team-Zuordnung/Relation ergänzen)
-      q = q.eq("source_account_id", user.id);
-    } // admin = kein Filter
-
-    const { data: rows, error } = await q;
-    if (error) throw error;
-
-    return NextResponse.json({ rows: rows || [] });
+    return new Date(value).toLocaleString("de-DE", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   } catch (e) {
-    console.error("orders/list error:", e);
-    return NextResponse.json({ error: e?.message || "Fehler" }, { status: 500 });
+    return value;
   }
+}
+
+function describeOption(selected, counts) {
+  if (!selected) return "—";
+  const base = OPTION_LABELS[selected] || "Individuell";
+  const chosen = counts?.[`c${selected}`];
+  const numeric = Number.isFinite(chosen) ? Number(chosen).toLocaleString("de-DE") : null;
+  return numeric ? `${base} · ${numeric}` : base;
+}
+
+export default function OrdersPage() {
+  const [range, setRange] = useState("today");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [rows, setRows] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(`/api/orders/list?range=${range}`, {
+          cache: "no-store",
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload?.error || "Fehler beim Laden der Aufträge");
+        }
+        if (!active) return;
+        setRows(Array.isArray(payload?.rows) ? payload.rows : []);
+      } catch (err) {
+        if (!active) return;
+        setError(err?.message || "Unbekannter Fehler");
+        setRows([]);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    load();
+    return () => {
+      active = false;
+    };
+  }, [range]);
+
+  const rangeLabel = useMemo(() => {
+    return RANGE_OPTIONS.find((opt) => opt.value === range)?.label || "Alle";
+  }, [range]);
+
+  return (
+    <main className="orders-shell">
+      <header className="orders-head">
+        <div>
+          <h1>Aufträge</h1>
+          <p className="range-hint">Zeitraum: {rangeLabel}</p>
+        </div>
+        <label className="range-picker">
+          <span>Zeitraum</span>
+          <select value={range} onChange={(event) => setRange(event.target.value)}>
+            {RANGE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </header>
+
+      {error && <p className="orders-error">{error}</p>}
+
+      <div className="orders-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Datum</th>
+              <th>Firma</th>
+              <th>Kontakt</th>
+              <th>E-Mail</th>
+              <th>Telefon</th>
+              <th>Auswahl</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 && !loading ? (
+              <tr>
+                <td colSpan={6} className="empty">
+                  Keine Aufträge im gewählten Zeitraum gefunden.
+                </td>
+              </tr>
+            ) : (
+              rows.map((row) => (
+                <tr key={row.id}>
+                  <td>{formatDate(row.created_at)}</td>
+                  <td>{row.company || "—"}</td>
+                  <td>
+                    {[row.first_name, row.last_name].filter(Boolean).join(" ") || "—"}
+                  </td>
+                  <td>
+                    {row.email ? (
+                      <a href={`mailto:${row.email}`} className="link">
+                        {row.email}
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td>{row.phone || "—"}</td>
+                  <td>{describeOption(row.selected_option, row.counts)}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+        {loading && <div className="orders-loading">Lade…</div>}
+      </div>
+
+      <style jsx>{`
+        .orders-shell {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          padding: 24px;
+        }
+        .orders-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+        .orders-head h1 {
+          font-size: 24px;
+          margin: 0;
+        }
+        .range-hint {
+          margin: 4px 0 0;
+          color: #64748b;
+          font-size: 14px;
+        }
+        .range-picker {
+          display: flex;
+          flex-direction: column;
+          font-size: 13px;
+          color: #334155;
+          gap: 4px;
+        }
+        .range-picker select {
+          min-width: 180px;
+          border-radius: 8px;
+          border: 1px solid #cbd5f5;
+          padding: 6px 10px;
+          font-size: 14px;
+        }
+        .orders-error {
+          background: #fee2e2;
+          border: 1px solid #fecaca;
+          color: #b91c1c;
+          padding: 12px 14px;
+          border-radius: 8px;
+          font-size: 14px;
+        }
+        .orders-table-wrap {
+          position: relative;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          overflow: hidden;
+          background: #ffffff;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        thead {
+          background: #f8fafc;
+        }
+        th {
+          text-align: left;
+          padding: 12px;
+          font-size: 13px;
+          color: #475569;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+        td {
+          padding: 12px;
+          font-size: 14px;
+          border-top: 1px solid #f1f5f9;
+        }
+        td.empty {
+          text-align: center;
+          color: #64748b;
+          font-style: italic;
+        }
+        .link {
+          color: #2563eb;
+          text-decoration: none;
+        }
+        .link:hover {
+          text-decoration: underline;
+        }
+        .orders-loading {
+          position: absolute;
+          inset: 0;
+          background: rgba(255, 255, 255, 0.65);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 600;
+          font-size: 15px;
+        }
+        @media (max-width: 768px) {
+          .orders-shell {
+            padding: 18px 12px;
+          }
+          .orders-table-wrap {
+            overflow-x: auto;
+          }
+          table {
+            min-width: 720px;
+          }
+        }
+      `}</style>
+    </main>
+  );
 }

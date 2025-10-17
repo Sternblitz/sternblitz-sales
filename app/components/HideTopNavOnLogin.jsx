@@ -9,7 +9,7 @@ export default function HideTopNavOnLogin({ children }) {
   const pathname = usePathname();
 
   // Seiten, auf denen die TopBar NICHT angezeigt werden soll
-  const hiddenRoutes = ["/login", "/"]; // du kannst hier später z. B. "/register" ergänzen
+  const hiddenRoutes = ["/login"]; // du kannst hier später z. B. "/register" ergänzen
 
   // Wenn die aktuelle Route in der Liste ist → nichts rendern
   if (hiddenRoutes.includes(pathname)) return null;

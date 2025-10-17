@@ -1,6 +1,7 @@
 // app/login/page.jsx
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
@@ -9,6 +10,27 @@ export default function LoginPage() {
   const [err, setErr] = useState(null);
   const [ok, setOk] = useState(null);
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    let isMounted = true;
+    const checkSession = async () => {
+      try {
+        const { data, error } = await supabase().auth.getSession();
+        if (error) return;
+        if (!isMounted) return;
+        if (data?.session) {
+          router.replace("/dashboard");
+        }
+      } catch (e) {
+        // ignore, we only care about successful redirects
+      }
+    };
+    checkSession();
+    return () => {
+      isMounted = false;
+    };
+  }, [router]);
 
   const onLogin = async (e) => {
     e.preventDefault();
@@ -33,11 +55,7 @@ export default function LoginPage() {
     }
 
     setOk("Login erfolgreich. Weiterleiten…");
-
-    // HARTE Weiterleitung nach kurzer Wartezeit
-    setTimeout(() => {
-      window.location.assign("/dashboard");
-    }, 300);
+    router.replace("/dashboard");
   };
 
   return (
