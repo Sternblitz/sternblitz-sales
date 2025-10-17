@@ -1,40 +1,56 @@
+// app/login/page.jsx
 "use client";
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
+  const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [err, setErr] = useState(null);
   const [ok, setOk] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [redirectTo, setRedirectTo] = useState("/dashboard");
 
-  // schon eingeloggt? -> weiterleiten
+  // Wenn bereits eingeloggt: einmalig weich auf /dashboard
   useEffect(() => {
-    // redirect-Param defensiv aus URL lesen (ohne next/navigation)
-    try {
-      const url = new URL(window.location.href);
-      const r = url.searchParams.get("redirect");
-      if (r) setRedirectTo(r);
-    } catch {}
-
-    supabase().auth.getSession().then(({ data }) => {
-      if (data?.session) window.location.href = redirectTo;
-    });
+    (async () => {
+      try {
+        const { data } = await supabase().auth.getSession();
+        if (data?.session) {
+          router.replace("/dashboard"); // kein window.location -> kein Reload-Loop
+        }
+      } catch {}
+    })();
+    // absichtlich keine deps → läuft nur einmal nach Mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onLogin = async (e) => {
     e.preventDefault();
-    setErr(null); setOk(null);
-    if (!email || !pw) { setErr("Bitte E-Mail und Passwort eingeben."); return; }
+    setErr(null);
+    setOk(null);
+
+    if (!email || !pw) {
+      setErr("Bitte E-Mail und Passwort eingeben.");
+      return;
+    }
+
     setLoading(true);
-    const { error } = await supabase().auth.signInWithPassword({ email, password: pw });
+    const { error } = await supabase().auth.signInWithPassword({
+      email,
+      password: pw,
+    });
     setLoading(false);
-    if (error) { setErr(error.message); return; }
+
+    if (error) {
+      setErr(error.message);
+      return;
+    }
+
     setOk("Login erfolgreich. Weiterleiten…");
-    window.location.href = redirectTo;
+    router.replace("/dashboard"); // weich, kein Reload
   };
 
   return (
@@ -59,7 +75,7 @@ export default function LoginPage() {
             autoComplete="email"
             placeholder="vorname@sternblitz.de"
             value={email}
-            onChange={(e)=>setEmail(e.target.value)}
+            onChange={(e) => setEmail(e.target.value)}
           />
 
           <label className="label">Passwort</label>
@@ -69,7 +85,7 @@ export default function LoginPage() {
             autoComplete="current-password"
             placeholder="••••••••"
             value={pw}
-            onChange={(e)=>setPw(e.target.value)}
+            onChange={(e) => setPw(e.target.value)}
           />
 
           {err && <p className="msg err">{err}</p>}
