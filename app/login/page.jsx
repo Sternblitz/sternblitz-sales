@@ -12,19 +12,15 @@ export default function LoginPage() {
   const [err, setErr] = useState(null);
   const [ok, setOk] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [redirectTo, setRedirectTo] = useState("/dashboard");
 
-  // Wenn bereits eingeloggt: einmalig weich auf /dashboard
+  // Nur redirect-Param auslesen, kein Auto-Redirect!
   useEffect(() => {
-    (async () => {
-      try {
-        const { data } = await supabase().auth.getSession();
-        if (data?.session) {
-          router.replace("/dashboard"); // kein window.location -> kein Reload-Loop
-        }
-      } catch {}
-    })();
-    // absichtlich keine deps → läuft nur einmal nach Mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    try {
+      const url = new URL(window.location.href);
+      const r = url.searchParams.get("redirect");
+      if (r) setRedirectTo(r);
+    } catch {}
   }, []);
 
   const onLogin = async (e) => {
@@ -50,8 +46,31 @@ export default function LoginPage() {
     }
 
     setOk("Login erfolgreich. Weiterleiten…");
-    router.replace("/dashboard"); // weich, kein Reload
+
+    // Warte kurz, bis Session gespeichert ist, dann HARTE Weiterleitung
+    setTimeout(async () => {
+      await supabase().auth.getSession();
+      const target =
+        redirectTo && redirectTo.startsWith("/")
+          ? redirectTo
+          : "/dashboard";
+      window.location.assign(target);
+    }, 150);
   };
+
+  // Failsafe: wenn Session später entsteht (z. B. nach Reload)
+  useEffect(() => {
+    const { data: sub } = supabase().auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        const target =
+          redirectTo && redirectTo.startsWith("/")
+            ? redirectTo
+            : "/dashboard";
+        window.location.assign(target);
+      }
+    });
+    return () => sub.subscription.unsubscribe();
+  }, [redirectTo]);
 
   return (
     <main className="login-bg">
@@ -100,7 +119,10 @@ export default function LoginPage() {
       </section>
 
       <style jsx>{`
-        :global(html), :global(body) { height: 100%; }
+        :global(html),
+        :global(body) {
+          height: 100%;
+        }
         .login-bg {
           min-height: 100vh;
           display: flex;
@@ -108,8 +130,8 @@ export default function LoginPage() {
           justify-content: center;
           padding: 36px 12px;
           background: url("https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/689acdb9f72cb41186204eda_stars-rating.webp")
-                      center/cover no-repeat;
-          font-family: 'Poppins', ui-sans-serif, system-ui, -apple-system;
+            center/cover no-repeat;
+          font-family: "Poppins", ui-sans-serif, system-ui, -apple-system;
         }
         .login-box {
           width: 100%;
@@ -117,32 +139,85 @@ export default function LoginPage() {
           background: #fff;
           border-radius: 18px;
           padding: 26px 20px 22px;
-          box-shadow: 0 6px 30px rgba(0,0,0,.12);
+          box-shadow: 0 6px 30px rgba(0, 0, 0, 0.12);
           box-sizing: border-box;
         }
-        .head { display: flex; flex-direction: column; align-items: center; margin-bottom: 14px; }
-        .logo { height: 68px; width: auto; margin-bottom: 6px; }
-        .headline { font-family: 'Outfit', sans-serif; font-size: 24px; font-weight: 800; color: #010101; margin: 0; line-height: 1.15; text-align: center; }
-        .subtitle { font-size: 14.5px; color: rgba(1,1,1,.75); font-weight: 600; margin: 6px 0 0; line-height: 1.3; }
+        .head {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          margin-bottom: 14px;
+        }
+        .logo {
+          height: 68px;
+          width: auto;
+          margin-bottom: 6px;
+        }
+        .headline {
+          font-family: "Outfit", sans-serif;
+          font-size: 24px;
+          font-weight: 800;
+          color: #010101;
+          margin: 0;
+          line-height: 1.15;
+          text-align: center;
+        }
+        .subtitle {
+          font-size: 14.5px;
+          color: rgba(1, 1, 1, 0.75);
+          font-weight: 600;
+          margin: 6px 0 0;
+          line-height: 1.3;
+        }
 
-        .form { width: 100%; max-width: 360px; margin: 8px auto 0; display: flex; flex-direction: column; gap: 8px; }
-        .login-text { font-size: 20px; font-weight: 800; color: #000; margin: 0 0 8px 0; text-align: center; line-height: 1.1; }
-        .label { font-size: 12.5px; color: #333; margin-top: 6px; line-height: 1.2; }
+        .form {
+          width: 100%;
+          max-width: 360px;
+          margin: 8px auto 0;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .login-text {
+          font-size: 20px;
+          font-weight: 800;
+          color: #000;
+          margin: 0 0 8px 0;
+          text-align: center;
+          line-height: 1.1;
+        }
+        .label {
+          font-size: 12.5px;
+          color: #333;
+          margin-top: 6px;
+          line-height: 1.2;
+        }
         .input {
           width: 100%;
           padding: 12px 14px;
-          border: 1px solid rgba(1,1,1,.12);
+          border: 1px solid rgba(1, 1, 1, 0.12);
           border-radius: 12px;
           font-size: 15.5px;
           outline: none;
-          transition: box-shadow .18s ease, border-color .18s ease;
+          transition: box-shadow 0.18s ease, border-color 0.18s ease;
           box-sizing: border-box;
         }
-        .input:focus { border-color: #49a84c; box-shadow: 0 0 0 2px rgba(73,168,76,.22); }
+        .input:focus {
+          border-color: #49a84c;
+          box-shadow: 0 0 0 2px rgba(73, 168, 76, 0.22);
+        }
 
-        .msg { margin: 6px 0 0; font-size: 14px; text-align: center; }
-        .msg.err { color: #dc2626; }
-        .msg.ok { color: #065f46; }
+        .msg {
+          margin: 6px 0 0;
+          font-size: 14px;
+          text-align: center;
+        }
+        .msg.err {
+          color: #dc2626;
+        }
+        .msg.ok {
+          color: #065f46;
+        }
 
         .cta {
           margin-top: 14px;
@@ -155,19 +230,41 @@ export default function LoginPage() {
           font-size: 16.5px;
           border: 0;
           cursor: pointer;
-          transition: transform .05s ease, filter .2s ease;
+          transition: transform 0.05s ease, filter 0.2s ease;
         }
-        .cta:hover { filter: brightness(1.06); }
-        .cta:active { transform: translateY(1px); }
+        .cta:hover {
+          filter: brightness(1.06);
+        }
+        .cta:active {
+          transform: translateY(1px);
+        }
 
-        .hint { margin-top: 12px; font-size: 12.5px; color: #6b7280; text-align: center; line-height: 1.2; }
+        .hint {
+          margin-top: 12px;
+          font-size: 12.5px;
+          color: #6b7280;
+          text-align: center;
+          line-height: 1.2;
+        }
 
         @media (max-width: 480px) {
-          .login-box { max-width: 94vw; padding: 22px 16px 18px; border-radius: 14px; }
-          .logo { height: 58px; }
-          .headline { font-size: 21px; }
-          .subtitle { font-size: 13.5px; }
-          .form { max-width: 100%; }
+          .login-box {
+            max-width: 94vw;
+            padding: 22px 16px 18px;
+            border-radius: 14px;
+          }
+          .logo {
+            height: 58px;
+          }
+          .headline {
+            font-size: 21px;
+          }
+          .subtitle {
+            font-size: 13.5px;
+          }
+          .form {
+            max-width: 100%;
+          }
         }
       `}</style>
     </main>
