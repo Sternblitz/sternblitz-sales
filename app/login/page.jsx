@@ -1,12 +1,9 @@
 // app/login/page.jsx
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
-  const router = useRouter();
-
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [err, setErr] = useState(null);
@@ -15,21 +12,32 @@ export default function LoginPage() {
 
   const onLogin = async (e) => {
     e.preventDefault();
-    setErr(null); setOk(null);
+    setErr(null);
+    setOk(null);
 
-    if (!email || !pw) { setErr("Bitte E-Mail und Passwort eingeben."); return; }
+    if (!email || !pw) {
+      setErr("Bitte E-Mail und Passwort eingeben.");
+      return;
+    }
 
     setLoading(true);
-    const { error } = await supabase().auth.signInWithPassword({ email, password: pw });
+    const { error } = await supabase().auth.signInWithPassword({
+      email,
+      password: pw,
+    });
     setLoading(false);
 
-    if (error) { setErr(error.message); return; }
+    if (error) {
+      setErr(error.message);
+      return;
+    }
 
     setOk("Login erfolgreich. Weiterleiten…");
-    // kleine Pause, damit die Session im Browser steht
+
+    // HARTE Weiterleitung nach kurzer Wartezeit
     setTimeout(() => {
-      router.replace("/dashboard");
-    }, 150);
+      window.location.assign("/dashboard");
+    }, 300);
   };
 
   return (
@@ -54,7 +62,7 @@ export default function LoginPage() {
             autoComplete="email"
             placeholder="vorname@sternblitz.de"
             value={email}
-            onChange={(e)=>setEmail(e.target.value)}
+            onChange={(e) => setEmail(e.target.value)}
           />
 
           <label className="label">Passwort</label>
@@ -64,7 +72,7 @@ export default function LoginPage() {
             autoComplete="current-password"
             placeholder="••••••••"
             value={pw}
-            onChange={(e)=>setPw(e.target.value)}
+            onChange={(e) => setPw(e.target.value)}
           />
 
           {err && <p className="msg err">{err}</p>}
