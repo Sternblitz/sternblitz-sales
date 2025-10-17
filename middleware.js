@@ -3,28 +3,31 @@ import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
 
 export async function middleware(req) {
   const res = NextResponse.next();
-  const supabase = createMiddlewareClient({ req, res });
+  const { pathname } = req.nextUrl;
 
-  // Nur Session prüfen, wenn wir wirklich im geschützten Bereich sind
-  const { pathname, search } = req.nextUrl;
-  const isProtected = pathname.startsWith("/dashboard");
+  // Nur /dashboard und /sign schützen
+  const protectedPaths = ["/dashboard", "/sign"];
+  const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
 
   if (!isProtected) {
-    // Login, Startseite etc. – nichts anfassen, keine Cookies schreiben
+    // Login & andere Seiten bleiben unberührt
     return res;
   }
 
-  const { data: { session } } = await supabase.auth.getSession();
+  const supabase = createMiddlewareClient({ req, res });
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
   if (!session && isProtected) {
-    const loginUrl = new URL("/login", req.url);
-    // optionales Rücksprungziel
-    loginUrl.searchParams.set("redirect", `${pathname}${search || ""}`);
-    return NextResponse.redirect(loginUrl);
+    // Kein redirect-Parameter mehr — nur simpler Login-Redirect
+    return NextResponse.redirect(new URL("/login", req.url));
   }
 
   return res;
 }
 
-// WICHTIG: nur Dashboard schützen
-export const config = { matcher: ["/dashboard/:path*"] };
+// Middleware greift nur auf Dashboard und Sign
+export const config = {
+  matcher: ["/dashboard/:path*", "/sign"],
+};
