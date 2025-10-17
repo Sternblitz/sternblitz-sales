@@ -1,5 +1,6 @@
 import "./globals.css";
 import TopNav from "./components/TopNav";
+import HideTopNavOnLogin from "./components/HideTopNavOnLogin";
 
 export const metadata = {
   title: "Sternblitz Sales",
@@ -17,13 +18,4 @@ export default function RootLayout({ children }) {
       </body>
     </html>
   );
-}
-
-// client-wrapper
-"use client";
-import { usePathname } from "next/navigation";
-function HideTopNavOnLogin({ children }) {
-  const pathname = usePathname();
-  if (pathname === "/login") return null;
-  return children;
 }
