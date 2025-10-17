@@ -1,228 +1,105 @@
-// app/dashboard/orders/page.jsx
-"use client";
+// app/api/orders/list/route.js
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/auth-helpers-nextjs";
+import { supabaseAdmin } from "@/lib/supabaseServer";
 
-import { useEffect, useMemo, useState } from "react";
+export const runtime = "nodejs"; // kein Edge, damit pdf/Storage etc. sauber laufen
 
-// UI helpers (same behaviour as before)
-function fmtDateTime(d) {
+// Zeitraum-Helfer
+function startOfToday() { const d = new Date(); d.setHours(0,0,0,0); return d; }
+function startOfYesterday() { const d = startOfToday(); d.setDate(d.getDate()-1); return d; }
+function startOfNDaysAgo(n) { const d = startOfToday(); d.setDate(d.getDate()-n); return d; }
+const toISO = (d) => new Date(d).toISOString();
+
+export async function GET(req) {
   try {
-    return new Date(d).toLocaleString("de-DE", {
-      year: "numeric", month: "2-digit", day: "2-digit",
-      hour: "2-digit", minute: "2-digit",
-    });
-  } catch { return String(d ?? ""); }
-}
-function chosenLabel(opt) {
-  return opt === "123" ? "1–3 ⭐ löschen"
-    : opt === "12" ? "1–2 ⭐ löschen"
-    : opt === "1" ? "1 ⭐ löschen"
-    : "Individuell";
-}
-function chosenCount(opt, counts) {
-  if (!counts) return null;
-  if (opt === "123") return counts.c123 ?? null;
-  if (opt === "12")  return counts.c12  ?? null;
-  if (opt === "1")   return counts.c1   ?? null;
-  return null;
-}
-function pillBtn(variant) {
-  const base = {
-    display: "inline-flex", alignItems: "center", justifyContent: "center",
-    height: 38, padding: "0 14px", borderRadius: 999, fontWeight: 800,
-    letterSpacing: ".2px", textDecoration: "none", border: "1px solid transparent",
-  };
-  if (variant === "blue") return {
-    ...base, background: "linear-gradient(135deg,#0b6cf2 0%,#3b82f6 100%)",
-    color: "#fff", boxShadow: "0 6px 18px rgba(11,108,242,.28)",
-  };
-  if (variant === "ghost") return {
-    ...base, background: "#f1f5f9", color: "#0f172a", border: "1px solid #e5e7eb",
-  };
-  return { ...base, background: "#f8fafc", color: "#94a3b8", border: "1px solid #e5e7eb" };
-}
-const filterPillBase = {
-  display: "inline-flex", alignItems: "center", justifyContent: "center",
-  height: 36, padding: "0 12px", borderRadius: 999, fontWeight: 800,
-  color: "#0f172a", textDecoration: "none", background: "#f8fafc", border: "1px solid #e5e7eb",
-};
-const filterPillActive = {
-  background: "linear-gradient(135deg,#34d399 0%,#22c55e 100%)",
-  color: "#fff", border: "1px solid #16a34a", boxShadow: "0 6px 18px rgba(34,197,94,.28)",
-};
-const cardStyle = {
-  padding: 16, borderRadius: 14, border: "1px solid #e5e7eb",
-  background: "#fff", boxShadow: "0 10px 24px rgba(2,6,23,.06)",
-};
-const emptyStyle = {
-  padding: 16, borderRadius: 12, border: "1px solid #e5e7eb",
-  background: "#fff", color: "#64748b",
-};
+    // 1) User aus Cookies lesen (KEIN Redirect, nur API)
+    const cookieStore = cookies();
+    const sbClient = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      { cookies: { get: (key) => cookieStore.get(key)?.value } }
+    );
+    const { data: { user }, error: userErr } = await sbClient.auth.getUser();
+    if (userErr) throw userErr;
+    if (!user) return NextResponse.json({ error: "Nicht eingeloggt" }, { status: 401 });
 
-// if only pdf_path exists and bucket is public
-function publicFromPath(path) {
-  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!base) return null;
-  return `${base}/storage/v1/object/public/contracts/${encodeURIComponent(path)}`;
-}
+    // 2) Rolle bestimmen
+    // a) aus user.user_metadata.role (wenn du sie beim Onboarding setzt)
+    let role = user.user_metadata?.role || null;
 
-export default function OrdersPage({ searchParams }) {
-  const initialRange = (searchParams?.range || "today").toString(); // SSR param on first load
-  const [range, setRange] = useState(initialRange);
-  const [loading, setLoading] = useState(true);
-  const [rows, setRows] = useState([]);
-  const [error, setError] = useState(null);
-
-  // keep URL in sync when clicking filter pills
-  const setRangeAndPush = (r) => {
-    setRange(r);
-    const url = new URL(window.location.href);
-    if (r === "all") url.searchParams.delete("range");
-    else url.searchParams.set("range", r);
-    history.replaceState(null, "", url.toString());
-  };
-
-  useEffect(() => {
-    let abort = false;
-    async function load() {
-      setLoading(true);
-      setError(null);
+    // b) optional aus "profiles" Tabelle (falls vorhanden)
+    if (!role) {
       try {
-        const qs = range && range !== "all" ? `?range=${encodeURIComponent(range)}` : "";
-        const res = await fetch(`/api/orders/list${qs}`, { cache: "no-store" });
-        const json = await res.json();
-        if (abort) return;
-        if (!res.ok) throw new Error(json?.error || "Fehler beim Laden");
-        setRows(json.rows || []);
-      } catch (e) {
-        setError(e?.message || String(e));
-      } finally {
-        if (!abort) setLoading(false);
-      }
+        const { data: prof } = await supabaseAdmin()
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .maybeSingle();
+        role = prof?.role || null;
+      } catch {}
     }
-    load();
-    return () => { abort = true; };
-  }, [range]);
 
-  const content = useMemo(() => {
-    if (loading) return <div style={emptyStyle}>Lade Aufträge…</div>;
-    if (error) {
-      return (
-        <div style={{
-          padding: 14, borderRadius: 12, border: "1px solid #fecaca",
-          background: "#fef2f2", color: "#7f1d1d", fontWeight: 700,
-        }}>
-          <strong>Fehler:</strong>&nbsp;{error}
-        </div>
-      );
+    // Default-Rolle
+    if (!role) role = "sales"; // "admin" | "team_lead" | "sales"
+
+    // 3) Zeitraumfilter aus Query
+    const { searchParams } = new URL(req.url);
+    const range = (searchParams.get("range") || "").toString(); // "today" | "yesterday" | "7d" | ""
+    let gte = null, lt = null;
+    if (range === "today") {
+      gte = startOfToday(); lt = new Date(gte); lt.setDate(lt.getDate()+1);
+    } else if (range === "yesterday") {
+      gte = startOfYesterday(); lt = startOfToday();
+    } else if (range === "7d") {
+      gte = startOfNDaysAgo(6); lt = new Date();
     }
-    if (!rows || rows.length === 0) {
-      return <div style={emptyStyle}>Keine Aufträge im gewählten Zeitraum.</div>;
+
+    // 4) Basis-Query
+    let q = supabaseAdmin()
+      .from("leads")
+      .select(`
+        id,
+        created_at,
+        google_profile,
+        google_url,
+        company,
+        first_name,
+        last_name,
+        email,
+        phone,
+        selected_option,
+        counts,
+        pdf_path,
+        pdf_signed_url,
+        source_account_id
+      `)
+      .order("created_at", { ascending: false })
+      .limit(300);
+
+    // Zeitraum anwenden
+    if (gte && lt) {
+      q = q.gte("created_at", toISO(gte)).lt("created_at", toISO(lt));
     }
-    return (
-      <div style={{ display: "grid", gap: 12 }}>
-        {rows.map((r) => {
-          const label = chosenLabel(r.selected_option);
-          const count = chosenCount(r.selected_option, r.counts);
-          const pdfUrl = r.pdf_signed_url || (r.pdf_path ? publicFromPath(r.pdf_path) : null);
 
-          return (
-            <article key={r.id} style={cardStyle}>
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "minmax(240px,1.2fr) minmax(200px,.9fr) minmax(160px,.8fr) minmax(220px,.9fr)",
-                gap: 14, alignItems: "center"
-              }}>
-                {/* Profil & Firma */}
-                <div>
-                  <div style={{ fontWeight: 800, color: "#0f172a" }}>
-                    {r.google_profile || "—"}
-                  </div>
-                  {r.company ? (
-                    <div style={{ color: "#64748b", marginTop: 4 }}>{r.company}</div>
-                  ) : null}
-                </div>
+    // 5) Rollen-Scoping
+    // - admin: sieht alles
+    // - sales: nur eigene (source_account_id = user.id)
+    // - team_lead: (hier erstmal wie sales ODER du hinterlegst später Team-Logik)
+    if (role === "sales") {
+      q = q.eq("source_account_id", user.id);
+    } else if (role === "team_lead") {
+      // QUICK WIN: zeig vorerst nur eigene. (Später: Team-Zuordnung/Relation ergänzen)
+      q = q.eq("source_account_id", user.id);
+    } // admin = kein Filter
 
-                {/* Auswahl */}
-                <div>
-                  <div style={{ fontWeight: 800 }}>{label}</div>
-                  <div style={{ color: "#0b6cf2", fontWeight: 800, marginTop: 2 }}>
-                    {Number.isFinite(Number(count)) ? `${Number(count).toLocaleString("de-DE")} Stück` : "—"}
-                  </div>
-                </div>
+    const { data: rows, error } = await q;
+    if (error) throw error;
 
-                {/* Datum */}
-                <div style={{ color: "#334155", fontWeight: 700 }}>
-                  {fmtDateTime(r.created_at)}
-                </div>
-
-                {/* Actions */}
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  {pdfUrl ? (
-                    <a href={pdfUrl} target="_blank" rel="noreferrer" style={pillBtn("blue")} title="PDF herunterladen">
-                      📄 PDF
-                    </a>
-                  ) : (
-                    <span style={pillBtn("muted")} title="Kein PDF gefunden">—</span>
-                  )}
-
-                  {r.google_url ? (
-                    <a href={r.google_url} target="_blank" rel="noreferrer" style={pillBtn("ghost")} title="Google-Profil öffnen">
-                      ↗ Profil
-                    </a>
-                  ) : null}
-                </div>
-              </div>
-
-              {/* Kontaktzeile */}
-              {(r.first_name || r.last_name || r.email || r.phone) ? (
-                <div style={{ marginTop: 10, color: "#475569" }}>
-                  {(r.first_name || r.last_name) && (
-                    <strong>{r.first_name || ""} {r.last_name || ""}</strong>
-                  )}
-                  {(r.email || r.phone) && (
-                    <span style={{ marginLeft: 8, color: "#64748b" }}>
-                      {r.email ? `· ${r.email}` : ""} {r.phone ? `· ${r.phone}` : ""}
-                    </span>
-                  )}
-                </div>
-              ) : null}
-            </article>
-          );
-        })}
-      </div>
-    );
-  }, [rows, loading, error]);
-
-  return (
-    <main style={{ maxWidth: 1100, margin: "20px auto", padding: "0 16px" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>Meine Aufträge</h1>
-        <Filters range={range} setRange={setRangeAndPush} />
-      </header>
-      {content}
-    </main>
-  );
-}
-
-function Filters({ range, setRange }) {
-  const Item = ({ value, label }) => {
-    const active = range === value || (value === "all" && !["today","yesterday","7d"].includes(range));
-    return (
-      <button
-        type="button"
-        onClick={() => setRange(value)}
-        style={{ ...filterPillBase, ...(active ? filterPillActive : {}) }}
-      >
-        {label}
-      </button>
-    );
-  };
-  return (
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-      <Item value="today" label="Heute" />
-      <Item value="yesterday" label="Gestern" />
-      <Item value="7d" label="Letzte 7 Tage" />
-      <Item value="all" label="Alle" />
-    </div>
-  );
+    return NextResponse.json({ rows: rows || [] });
+  } catch (e) {
+    console.error("orders/list error:", e);
+    return NextResponse.json({ error: e?.message || "Fehler" }, { status: 500 });
+  }
 }
