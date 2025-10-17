@@ -186,31 +186,83 @@ export async function POST(req) {
     const { data: pub } = sb.storage.from("contracts").getPublicUrl(key);
     const pdfUrl = pub?.publicUrl || null;
 
-    // 3) Lead speichern (leichtgewichtig)
+    // 3) Order anlegen (führende Datenquelle)
+    const picked = chosenCount(selectedOption, counts);
+
+    let profile = null;
+    if (source_account_id) {
+      try {
+        const { data, error } = await sb
+          .from("profiles")
+          .select("*")
+          .eq("id", source_account_id)
+          .maybeSingle();
+        if (error) {
+          console.warn("Profile fetch warn:", error.message);
+        } else {
+          profile = data ?? null;
+        }
+      } catch (profileErr) {
+        console.warn("Profile fetch exception:", profileErr?.message || profileErr);
+      }
+    }
+
+    const orderPayload = {
+      google_profile: googleProfile,
+      google_url: null,
+      selected_option: selectedOption,
+      counts: counts ?? null,
+      company,
+      first_name: firstName,
+      last_name: lastName,
+      email,
+      phone,
+      signature_png_path: null, // optional: separat speichern, falls gewünscht
+      pdf_path: key,
+      pdf_signed_url: pdfUrl,
+      rep_code,
+      source_account_id,
+      sales_rep_id: source_account_id ?? null,
+      option_chosen_count: picked ?? null,
+    };
+
+    if (profile?.team_id) {
+      orderPayload.team_id = profile.team_id;
+    }
+
+    if (profile && Object.prototype.hasOwnProperty.call(profile, "default_order_status")) {
+      orderPayload.status = profile.default_order_status || "new";
+    }
+
+    const { error: orderError } = await sb.from("orders").insert([orderPayload]);
+    if (orderError) throw orderError;
+
+    // 4) Lead weiterhin (optional) speichern
     try {
-      const picked = chosenCount(selectedOption, counts);
-      await sb.from("leads").insert([{
-        google_profile: googleProfile,
-        google_url: null,
-        selected_option: selectedOption,
-        counts: counts ?? null,
-        company,
-        first_name: firstName,
-        last_name: lastName,
-        email,
-        phone,
-        signature_png_path: null, // optional: separat speichern, falls gewünscht
-        pdf_path: key,            // Storage-Key
-        pdf_signed_url: pdfUrl,   // public URL (weil Bucket public)
-        rep_code,                 // neu
-        source_account_id,        // neu (z. B. supabase user id)
-        option_chosen_count: picked ?? null,
-      }]);
+      await sb.from("leads").insert([
+        {
+          google_profile: googleProfile,
+          google_url: null,
+          selected_option: selectedOption,
+          counts: counts ?? null,
+          company,
+          first_name: firstName,
+          last_name: lastName,
+          email,
+          phone,
+          signature_png_path: null, // optional: separat speichern, falls gewünscht
+          pdf_path: key,
+          pdf_signed_url: pdfUrl,
+          rep_code,
+          source_account_id,
+          option_chosen_count: picked ?? null,
+        },
+      ]);
     } catch (e) {
       console.warn("Leads insert warn:", e?.message || e);
     }
 
-    // 4) E-Mail via Resend
+    // 5) E-Mail via Resend
     const resend = new Resend(process.env.RESEND_API_KEY);
     const FROM = process.env.RESEND_FROM || "";
     const REPLY_TO = process.env.RESEND_REPLY_TO || "";
