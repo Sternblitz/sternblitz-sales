@@ -1,2 +1,21 @@
 /* app/globals.css */
-html, body { margin: 0; padding: 0; }
+:root {
+  --ink: #0f172a;
+  --bg: #F7FAFF;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body.sb-body {
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Optional: Links standardmäßig nicht blau/unterstrichen */
+a { color: inherit; text-decoration: none; }
