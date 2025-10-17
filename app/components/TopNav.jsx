@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export default function TopNav() {
@@ -21,19 +20,28 @@ export default function TopNav() {
       <nav className="sb-topnav">
         <div className="inner">
           {/* Logo */}
-          <Link href="/dashboard" className="brand">
+          <button
+            type="button"
+            className="brand"
+            onClick={() => router.push("/dashboard")}
+            aria-label="Sternblitz Dashboard"
+          >
             <img
               src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/68ad4679902a5d278c4cf0bc_Group%202085662922-p-500.png"
               alt="Sternblitz"
               className="logo"
             />
-          </Link>
+          </button>
 
           {/* Buttons rechts */}
           <div className="actions">
-            <Link href="/dashboard/orders" className="btn orders">
+            <button
+              type="button"
+              className="btn orders"
+              onClick={() => router.push("/dashboard/orders")}
+            >
               📄 Meine&nbsp;Aufträge
-            </Link>
+            </button>
 
             <button type="button" className="btn logout" onClick={handleLogout}>
               Logout
@@ -55,9 +63,7 @@ export default function TopNav() {
           border-bottom: 1px solid rgba(0, 0, 0, 0.05);
           box-shadow: 0 8px 28px rgba(0, 0, 0, 0.04);
         }
-        .spacer {
-          height: 72px;
-        }
+        .spacer { height: 72px; }
         .inner {
           max-width: 1200px;
           margin: 0 auto;
@@ -67,7 +73,14 @@ export default function TopNav() {
           justify-content: space-between;
         }
 
-        /* Logo */
+        /* Logo (als Button, ohne Rahmen/Hintergrund) */
+        .brand {
+          border: none;
+          background: transparent;
+          padding: 0;
+          margin: 0;
+          cursor: pointer;
+        }
         .logo {
           height: 46px;
           width: auto;
@@ -75,7 +88,7 @@ export default function TopNav() {
           transition: transform 0.2s ease;
           filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.08));
         }
-        .logo:hover {
+        .brand:hover .logo {
           transform: scale(1.04);
         }
 
@@ -103,18 +116,21 @@ export default function TopNav() {
           border: none;
           text-decoration: none;
           transition: all 0.18s ease;
+          user-select: none;
+          -webkit-tap-highlight-color: transparent;
         }
 
-        /* 💙 Meine Aufträge – kräftiger, leuchtend blau */
+        /* 💙 Meine Aufträge – kräftiger, leuchtend blau (Card-Look) */
         .btn.orders {
           background: linear-gradient(135deg, #0b6cf2 0%, #3b82f6 100%);
           color: #ffffff;
-          box-shadow: 0 6px 18px rgba(11, 108, 242, 0.28);
+          box-shadow: 0 8px 22px rgba(11, 108, 242, 0.28);
+          border: 1px solid rgba(11, 108, 242, 0.25);
         }
         .btn.orders:hover {
           transform: translateY(-1px);
           filter: brightness(1.05);
-          box-shadow: 0 10px 26px rgba(11, 108, 242, 0.35);
+          box-shadow: 0 12px 28px rgba(11, 108, 242, 0.35);
         }
         .btn.orders:active {
           transform: translateY(0);
@@ -136,31 +152,14 @@ export default function TopNav() {
 
         /* Responsiv */
         @media (max-width: 900px) {
-          .logo {
-            height: 38px;
-          }
-          .btn {
-            height: 38px;
-            padding: 0 16px;
-            font-size: 14px;
-          }
+          .logo { height: 38px; }
+          .btn { height: 38px; padding: 0 16px; font-size: 14px; }
         }
-
         @media (max-width: 640px) {
-          .inner {
-            padding: 10px 14px;
-          }
-          .logo {
-            height: 32px;
-          }
-          .actions {
-            gap: 8px;
-          }
-          .btn {
-            height: 36px;
-            padding: 0 12px;
-            font-size: 13.5px;
-          }
+          .inner { padding: 10px 14px; }
+          .logo { height: 32px; }
+          .actions { gap: 8px; }
+          .btn { height: 36px; padding: 0 12px; font-size: 13.5px; }
         }
       `}</style>
     </>
