@@ -2,33 +2,40 @@
 import { NextResponse } from "next/server";
 import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
 
-const PROTECTED_PREFIXES = ["/dashboard", "/sign"];
-
 export async function middleware(req) {
-  const url = new URL(req.url);
   const res = NextResponse.next();
+  const url = req.nextUrl;
+  const { pathname, search } = url;
 
-  // Ist die Route geschützt?
-  const isProtected = PROTECTED_PREFIXES.some((p) => url.pathname === p || url.pathname.startsWith(p + "/"));
-  if (!isProtected) return res;
+  // Seiten, die Login benötigen
+  const protectedPrefixes = ["/dashboard", "/sign"];
+  const isProtected = protectedPrefixes.some((p) => pathname.startsWith(p));
 
-  // Supabase-User aus Cookies lesen
+  // Supabase-Session lesen (Edge-sicher)
   const supabase = createMiddlewareClient({ req, res });
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  // Wenn NICHT eingeloggt -> auf /login schicken (oder auf / umleiten, falls du keine Login-Seite willst)
-  if (!user) {
+  // 1) Nicht eingeloggt, aber geschützte Seite -> auf Login
+  if (!session && isProtected) {
+    const redirectTo = `${pathname}${search || ""}`;
     const loginUrl = new URL("/login", req.url);
-    loginUrl.searchParams.set("redirect", url.pathname + url.search); // später zurück
+    loginUrl.searchParams.set("redirect", redirectTo);
     return NextResponse.redirect(loginUrl);
   }
 
+  // 2) Eingeloggt und auf /login -> nach Dashboard
+  if (session && pathname === "/login") {
+    const dashUrl = new URL("/dashboard", req.url);
+    return NextResponse.redirect(dashUrl);
+  }
+
+  // 3) Alles andere normal ausliefern
   return res;
 }
 
+// WICHTIG: /login mitmatchen, aber die Logik oben verhindert die Schleife
 export const config = {
-  matcher: [
-    "/sign/:path*",
-    "/dashboard/:path*",
-  ],
+  matcher: ["/login", "/dashboard/:path*", "/sign"],
 };
