@@ -1,17 +1,21 @@
+// components/TopNav.jsx
 "use client";
-
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function TopNav() {
   const router = useRouter();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     try {
+      await supabase().auth.signOut();
+    } catch (e) {
+      console.error(e);
+    } finally {
       sessionStorage.clear();
       localStorage.clear();
-      router.push("/");
-    } catch (e) {
-      console.error("Logout error:", e);
+      router.replace("/login");
     }
   };
 
