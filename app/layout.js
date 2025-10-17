@@ -1,6 +1,5 @@
-// app/layout.js
-import "./globals.css"; // keep if this file exists; see note below
-import RepTracker from "../components/RepTracker"; // <-- FIXED PATH
+import "./globals.css";             // Datei 4 unten – winzig, aber wichtig
+import RepTracker from "./components/RepTracker";
 
 export const metadata = {
   title: "Sternblitz Sales",
@@ -10,15 +9,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="de">
-      <body
-        style={{
-          margin: 0,
-          background: "#F7FAFF",
-          fontFamily:
-            'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial',
-        }}
-      >
-        {/* Liest ?rep=... und speichert sessionStorage: sb_rep_code */}
+      <body>
         <RepTracker />
         {children}
       </body>
