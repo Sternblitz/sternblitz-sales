@@ -1,58 +1,120 @@
 // app/api/orders/list/route.js
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseServer";
+import { supabaseServerAuth } from "@/lib/supabaseServerAuth";
 
-// helpers
-function startOfToday() { const d = new Date(); d.setHours(0,0,0,0); return d; }
-function startOfYesterday() { const d = startOfToday(); d.setDate(d.getDate()-1); return d; }
-function startOfNDaysAgo(n){ const d = startOfToday(); d.setDate(d.getDate()-n); return d; }
-const toISO = (d) => new Date(d).toISOString();
+export const runtime = "nodejs"; // Storage + Service Role benötigen Node Runtime
+
+const toISO = (value) => new Date(value).toISOString();
+const startOfToday = () => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+const startOfYesterday = () => {
+  const d = startOfToday();
+  d.setDate(d.getDate() - 1);
+  return d;
+};
+const startOfNDaysAgo = (n) => {
+  const d = startOfToday();
+  d.setDate(d.getDate() - n);
+  return d;
+};
+
+async function resolveRole(user) {
+  const rawRole = user?.user_metadata?.role;
+  const normalized = typeof rawRole === "string" ? rawRole.toLowerCase() : null;
+  if (normalized) {
+    return normalized;
+  }
+
+  try {
+    const { data, error } = await supabaseAdmin()
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (error) throw error;
+    const profileRole = typeof data?.role === "string" ? data.role.toLowerCase() : null;
+    return profileRole || "sales";
+  } catch (e) {
+    return "sales";
+  }
+}
+
+function timeFilter(range) {
+  if (range === "today") {
+    const gte = startOfToday();
+    const lt = new Date(gte);
+    lt.setDate(lt.getDate() + 1);
+    return { gte: toISO(gte), lt: toISO(lt) };
+  }
+  if (range === "yesterday") {
+    return { gte: toISO(startOfYesterday()), lt: toISO(startOfToday()) };
+  }
+  if (range === "7d") {
+    return { gte: toISO(startOfNDaysAgo(6)), lt: toISO(new Date()) };
+  }
+  return {};
+}
 
 export async function GET(req) {
   try {
+    const authClient = supabaseServerAuth();
+    const { data: userResult, error: userError } = await authClient.auth.getUser();
+    if (userError) throw userError;
+    const user = userResult?.user;
+    if (!user) {
+      return NextResponse.json({ error: "Nicht eingeloggt" }, { status: 401 });
+    }
+
+    const effectiveRole = await resolveRole(user);
+    const role = ["admin", "team_lead", "sales"].includes(effectiveRole)
+      ? effectiveRole
+      : "sales";
+
     const { searchParams } = new URL(req.url);
-    const range = (searchParams.get("range") || "all").toString(); // today|yesterday|7d|all
+    const range = (searchParams.get("range") || "all").toString();
+    const { gte, lt } = timeFilter(range);
 
-    // timeframe
-    let gte = null, lt = null;
-    if (range === "today") {
-      gte = startOfToday(); lt = new Date(gte); lt.setDate(lt.getDate()+1);
-    } else if (range === "yesterday") {
-      gte = startOfYesterday(); lt = startOfToday();
-    } else if (range === "7d") {
-      gte = startOfNDaysAgo(6); lt = new Date();
-    }
-
-    const sb = supabaseAdmin();
-    let q = sb
+    let query = supabaseAdmin()
       .from("leads")
-      .select(`
-        id,
-        created_at,
-        google_profile,
-        google_url,
-        company,
-        first_name,
-        last_name,
-        email,
-        phone,
-        selected_option,
-        counts,
-        pdf_path,
-        pdf_signed_url
-      `)
+      .select(
+        `
+          id,
+          created_at,
+          google_profile,
+          google_url,
+          company,
+          first_name,
+          last_name,
+          email,
+          phone,
+          selected_option,
+          counts,
+          pdf_path,
+          pdf_signed_url,
+          source_account_id
+        `
+      )
       .order("created_at", { ascending: false })
-      .limit(200);
+      .limit(300);
 
-    if (gte && lt) q = q.gte("created_at", toISO(gte)).lt("created_at", toISO(lt));
-
-    const { data, error } = await q;
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+    if (gte && lt) {
+      query = query.gte("created_at", gte).lt("created_at", lt);
     }
 
-    return NextResponse.json({ ok: true, rows: data ?? [] });
+    if (role !== "admin") {
+      query = query.eq("source_account_id", user.id);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return NextResponse.json({ rows: data ?? [] });
   } catch (e) {
-    return NextResponse.json({ error: e?.message || "Unknown error" }, { status: 500 });
+    console.error("orders/list error:", e);
+    return NextResponse.json({ error: e?.message || "Fehler" }, { status: 500 });
   }
 }
