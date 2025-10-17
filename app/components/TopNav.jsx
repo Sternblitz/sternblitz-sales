@@ -1,168 +1,124 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { supabase } from "@/lib/supabaseClient";
 
-export default function TopNav() {
-  const router = useRouter();
-
-  const handleLogout = () => {
+export default function TopBar() {
+  const onLogout = async () => {
     try {
-      sessionStorage.clear();
-      localStorage.clear();
-      router.push("/");
-    } catch (e) {
-      console.error("Logout error:", e);
-    }
+      const sb = supabase();
+      await sb.auth.signOut();
+    } catch {}
+    // zurück zur Startseite
+    window.location.href = "/";
   };
 
   return (
-    <>
-      <nav className="sb-topnav">
-        <div className="inner">
-          {/* Logo */}
-          <Link href="/dashboard" className="brand">
-            <img
-              src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/68ad4679902a5d278c4cf0bc_Group%202085662922-p-500.png"
-              alt="Sternblitz"
-              className="logo"
-            />
+    <header className="topbar" role="banner" aria-label="Sternblitz">
+      <div className="inner">
+        <div className="brand">
+          <Image
+            src="https://cdn.prod.website-files.com/6899bdb7664b4bd2cbd18c82/68ad4679902a5d278c4cf0bc_Group%202085662922-p-500.png"
+            alt="Sternblitz"
+            width={150}
+            height={36}
+            priority
+          />
+        </div>
+
+        <nav className="actions" aria-label="Hauptaktionen">
+          {/* === BLAUER PILL-BUTTON === */}
+          <Link href="/dashboard/orders" className="btn order">
+            <span className="ico" aria-hidden>📄</span>
+            <span>Meine Aufträge</span>
           </Link>
 
-          {/* Buttons rechts */}
-          <div className="actions">
-            <Link href="/dashboard/orders" className="btn orders">
-              📄 Meine&nbsp;Aufträge
-            </Link>
-
-            <button type="button" className="btn logout" onClick={handleLogout}>
-              Logout
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      <div className="spacer" />
+          {/* === DEZENTER LOGOUT PILL === */}
+          <button type="button" className="btn logout" onClick={onLogout}>
+            Logout
+          </button>
+        </nav>
+      </div>
 
       <style jsx>{`
-        /* Grundlayout */
-        .sb-topnav {
-          position: sticky;
-          top: 0;
-          z-index: 50;
-          background: rgba(255, 255, 255, 0.9);
-          backdrop-filter: blur(10px) saturate(1.2);
-          border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-          box-shadow: 0 8px 28px rgba(0, 0, 0, 0.04);
+        .topbar{
+          position: sticky; top: 0; z-index: 20;
+          background: rgba(255,255,255,.96);
+          backdrop-filter: blur(6px) saturate(1.05);
+          border-bottom: 1px solid #eef2f7;
         }
-        .spacer {
-          height: 72px;
-        }
-        .inner {
-          max-width: 1200px;
+        .inner{
+          max-width: 1208px;
           margin: 0 auto;
-          padding: 12px 20px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
+          padding: 10px 12px;
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 12px;
         }
+        .brand :global(img){
+          height: 40px; width: auto; object-fit: contain;
+          filter: drop-shadow(0 4px 10px rgba(0,0,0,.06));
+        }
+        .actions{ display: flex; align-items: center; gap: 10px; }
 
-        /* Logo */
-        .logo {
-          height: 46px;
-          width: auto;
-          object-fit: contain;
-          transition: transform 0.2s ease;
-          filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.08));
-        }
-        .logo:hover {
-          transform: scale(1.04);
-        }
-
-        /* Buttons rechts */
-        .actions {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-          flex-wrap: wrap;
-        }
-
-        /* Basis-Button */
-        .btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          padding: 0 20px;
-          height: 42px;
+        /* Gemeinsame Button-Basis */
+        .btn{
+          appearance: none;
+          display: inline-flex; align-items: center; gap: 10px;
+          padding: 10px 16px;
           border-radius: 999px;
           font-weight: 800;
-          font-size: 15px;
-          letter-spacing: 0.2px;
+          letter-spacing: .2px;
+          line-height: 1;
+          white-space: nowrap;
+          box-shadow: 0 10px 24px rgba(0,0,0,.06);
+          transition: transform .12s ease, box-shadow .18s ease, filter .18s ease, background .18s ease;
+          border: 1px solid transparent;
+          text-decoration: none; /* Link-Underline AUS */
           cursor: pointer;
-          border: none;
-          text-decoration: none;
-          transition: all 0.18s ease;
+          user-select: none;
         }
+        .btn:focus{ outline: none; box-shadow: 0 0 0 3px rgba(11,108,242,.20); }
 
-        /* 💙 Meine Aufträge – kräftiger, leuchtend blau */
-        .btn.orders {
-          background: linear-gradient(135deg, #0b6cf2 0%, #3b82f6 100%);
-          color: #ffffff;
-          box-shadow: 0 6px 18px rgba(11, 108, 242, 0.28);
+        /* Blauer Aufträge-Button (Premium Card) */
+        .btn.order{
+          color: #fff;
+          background: linear-gradient(135deg, #3b82f6 0%, #0b6cf2 100%);
+          border-color: rgba(11,108,242,.25);
         }
-        .btn.orders:hover {
+        .btn.order:hover{
           transform: translateY(-1px);
-          filter: brightness(1.05);
-          box-shadow: 0 10px 26px rgba(11, 108, 242, 0.35);
+          filter: brightness(1.03);
+          box-shadow: 0 14px 30px rgba(11,108,242,.28);
         }
-        .btn.orders:active {
+        .btn.order:active{
           transform: translateY(0);
-          filter: brightness(0.96);
+          filter: brightness(.98);
+          box-shadow: 0 8px 18px rgba(11,108,242,.22);
         }
+        .btn.order .ico{ font-size: 18px; line-height: 1; }
 
-        /* Logout – dezent, elegant grau */
-        .btn.logout {
-          background: #f5f5f7;
-          color: #111;
-          border: 1px solid #e5e7eb;
-          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
-          font-weight: 700;
+        /* Dezenter Logout-Button (wie bisher) */
+        .btn.logout{
+          color: #0b0b0b;
+          background: linear-gradient(135deg, #ffffff 0%, #f7f9ff 100%);
+          border-color: #e5e7eb;
         }
-        .btn.logout:hover {
-          background: #e8e8ea;
+        .btn.logout:hover{
           transform: translateY(-1px);
+          box-shadow: 0 14px 30px rgba(2,6,23,.10);
+        }
+        .btn.logout:active{
+          transform: translateY(0);
+          box-shadow: 0 8px 18px rgba(2,6,23,.08);
         }
 
-        /* Responsiv */
-        @media (max-width: 900px) {
-          .logo {
-            height: 38px;
-          }
-          .btn {
-            height: 38px;
-            padding: 0 16px;
-            font-size: 14px;
-          }
-        }
-
-        @media (max-width: 640px) {
-          .inner {
-            padding: 10px 14px;
-          }
-          .logo {
-            height: 32px;
-          }
-          .actions {
-            gap: 8px;
-          }
-          .btn {
-            height: 36px;
-            padding: 0 12px;
-            font-size: 13.5px;
-          }
+        /* Responsive */
+        @media (max-width: 640px){
+          .btn{ padding: 9px 14px; }
+          .brand :global(img){ height: 34px; }
         }
       `}</style>
-    </>
+    </header>
   );
 }
