@@ -1,195 +1,231 @@
-"use client";
+// app/dashboard/orders/page.jsx
+import { supabaseAdmin } from "@/lib/supabaseServer";
+import Link from "next/link";
 
-import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+// Keine SSG/Caches – immer frische Daten
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
 
-const ranges = [
-  { key: "today", label: "Heute" },
-  { key: "yesterday", label: "Gestern" },
-  { key: "7d", label: "Letzte 7 Tage" },
-  { key: "all", label: "Alle" },
-];
+function startEndForRange(range) {
+  const now = new Date();
+  const end = new Date(now);
+  let start = new Date(now);
 
-export default function OrdersPage() {
-  const [loading, setLoading] = useState(true);
-  const [me, setMe] = useState(null);
-  const [rows, setRows] = useState([]);
-  const [range, setRange] = useState("7d");
+  if (range === "today") {
+    start.setHours(0,0,0,0);
+    end.setHours(23,59,59,999);
+  } else if (range === "yesterday") {
+    start = new Date(now); start.setDate(start.getDate()-1); start.setHours(0,0,0,0);
+    end   = new Date(start); end.setHours(23,59,59,999);
+  } else if (range === "7d") {
+    start = new Date(now); start.setDate(start.getDate()-6); start.setHours(0,0,0,0);
+    end.setHours(23,59,59,999);
+  } else {
+    start = null; // kein Filter
+  }
+  return { start, end };
+}
 
-  // Zeitraum berechnen
-  const { fromISO } = useMemo(() => {
-    const now = new Date();
-    let from = null;
+function prettyDate(ts) {
+  try {
+    return new Date(ts).toLocaleString("de-DE");
+  } catch {
+    return "–";
+  }
+}
 
-    if (range === "today") {
-      const d = new Date(now); d.setHours(0,0,0,0);
-      from = d;
-    } else if (range === "yesterday") {
-      const d = new Date(now); d.setDate(d.getDate() - 1); d.setHours(0,0,0,0);
-      from = d;
-    } else if (range === "7d") {
-      const d = new Date(now); d.setDate(d.getDate() - 7);
-      from = d;
-    } else {
-      from = null; // alle
-    }
+function optionLabel(opt) {
+  if (opt === "123") return "1–3 ⭐ löschen";
+  if (opt === "12")  return "1–2 ⭐ löschen";
+  if (opt === "1")   return "1 ⭐ löschen";
+  return "Individuell";
+}
 
-    return { fromISO: from ? from.toISOString() : null };
-  }, [range]);
+export default async function OrdersPage({ searchParams }) {
+  const range = (searchParams?.range || "").toLowerCase(); // today | yesterday | 7d | ""
+  const { start, end } = startEndForRange(range);
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      setLoading(true);
-      try {
-        const sb = supabase();
+  const sb = supabaseAdmin();
 
-        // eingeloggter User
-        const { data: u } = await sb.auth.getUser();
-        const userId = u?.user?.id || null;
-        if (!userId) {
-          setMe(null);
-          setRows([]);
-          setLoading(false);
-          return;
-        }
-        setMe(u.user);
+  // Basisselekt – später filtern wir hier per sales_rep/source_account_id/role
+  let query = sb
+    .from("leads")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(200);
 
-        // Query auf leads – gefiltert über source_account_id und Zeitraum
-        let q = sb
-          .from("leads")
-          .select(
-            "id, created_at, google_profile, selected_option, counts, company, first_name, last_name, email, phone, pdf_path, pdf_signed_url"
-          )
-          .eq("source_account_id", userId)
-          .order("created_at", { ascending: false });
+  if (start && end) {
+    query = query.gte("created_at", start.toISOString())
+                 .lte("created_at", end.toISOString());
+  }
 
-        if (fromISO) q = q.gte("created_at", fromISO);
-
-        const { data, error } = await q;
-        if (error) throw error;
-        if (!mounted) return;
-        setRows(data || []);
-      } catch (e) {
-        console.error(e);
-        if (mounted) setRows([]);
-      } finally {
-        mounted && setLoading(false);
-      }
-    })();
-
-    return () => { mounted = false; };
-  }, [fromISO]);
-
-  const fmt = (iso) => new Date(iso).toLocaleString("de-DE");
-  const labelFor = (opt) =>
-    opt === "123" ? "1–3 ⭐"
-    : opt === "12" ? "1–2 ⭐"
-    : opt === "1"   ? "1 ⭐"
-    : "Individuell";
+  const { data: rows, error } = await query;
 
   return (
-    <section>
-      <header className="head">
-        <h1>Meine Aufträge</h1>
-        <div className="filters">
-          {ranges.map(r => (
-            <button
-              key={r.key}
-              className={`chip ${range === r.key ? "on" : ""}`}
-              onClick={() => setRange(r.key)}
+    <main style={{maxWidth: "1100px", margin:"0 auto", padding:"18px"}}>
+      <header style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12, marginBottom:12}}>
+        <h1 style={{margin:0, fontSize:22}}>Meine Aufträge</h1>
+
+        {/* Filter */}
+        <div style={{display:"flex", gap:8, flexWrap:"wrap"}}>
+          {[
+            ["", "Alle"],
+            ["today", "Heute"],
+            ["yesterday", "Gestern"],
+            ["7d", "Letzte 7 Tage"],
+          ].map(([val, label]) => (
+            <Link
+              key={val || "all"}
+              href={val ? `?range=${val}` : `/dashboard/orders`}
+              style={{
+                display:"inline-flex",
+                alignItems:"center",
+                height:36,
+                padding:"0 14px",
+                borderRadius:999,
+                fontWeight:800,
+                letterSpacing:".2px",
+                textDecoration:"none",
+                border: "1px solid #e5e7eb",
+                background: range===val ? "linear-gradient(135deg,#0b6cf2,#3b82f6)" : "#fff",
+                color: range===val ? "#fff" : "#111",
+                boxShadow: range===val ? "0 6px 18px rgba(11,108,242,.28)" : "0 2px 6px rgba(0,0,0,.04)"
+              }}
             >
-              {r.label}
-            </button>
+              {label}
+            </Link>
           ))}
         </div>
       </header>
 
-      {loading ? (
-        <div className="card">Lade…</div>
-      ) : rows.length === 0 ? (
-        <div className="card">Keine Aufträge im gewählten Zeitraum.</div>
-      ) : (
-        <div className="table card">
-          <div className="thead">
-            <div>Datum</div>
-            <div>Google-Profil</div>
-            <div>Auswahl</div>
-            <div>Kunde</div>
-            <div>PDF</div>
-          </div>
-          <div className="tbody">
-            {rows.map((r) => {
-              // ausgewählte Stückzahl
-              const cnt =
-                r.selected_option === "123" ? r.counts?.c123 :
-                r.selected_option === "12"  ? r.counts?.c12  :
-                r.selected_option === "1"   ? r.counts?.c1   : null;
+      {/* Fehleranzeige */}
+      {error ? (
+        <div style={{
+          border:"1px solid #fee2e2",
+          background:"#fff1f2",
+          color:"#991b1b",
+          padding:"12px 14px",
+          borderRadius:12,
+          marginTop:10
+        }}>
+          Fehler beim Laden: {error.message}
+        </div>
+      ) : null}
 
-              const pdfUrl = r.pdf_signed_url || (
-                r.pdf_path ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/contracts/${r.pdf_path}` : null
-              );
+      {/* Leerzustand */}
+      {!error && (!rows || rows.length === 0) ? (
+        <div style={{
+          marginTop:16,
+          padding:"18px 16px",
+          border:"1px dashed #cbd5e1",
+          borderRadius:14,
+          background:"#fff"
+        }}>
+          Keine Aufträge im gewählten Zeitraum.
+        </div>
+      ) : null}
 
-              return (
-                <div key={r.id} className="tr">
-                  <div>{fmt(r.created_at)}</div>
-                  <div title={r.google_profile} className="ellipsis">
-                    {r.google_profile || "—"}
+      {/* Liste */}
+      <div style={{display:"grid", gridTemplateColumns:"1fr", gap:12, marginTop:12}}>
+        {(rows || []).map((r) => {
+          const cnts = (r.counts || {}) as any;
+          const chosen =
+            r.selected_option === "123" ? cnts.c123 :
+            r.selected_option === "12"  ? cnts.c12  :
+            r.selected_option === "1"   ? cnts.c1   : null;
+
+          return (
+            <div key={r.id} style={{
+              border:"1px solid #e5e7eb",
+              background:"#fff",
+              borderRadius:14,
+              padding:"14px 16px",
+              boxShadow: "0 16px 36px rgba(2,6,23,.06)"
+            }}>
+              <div style={{display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+                <div>
+                  <div style={{fontWeight:900, fontSize:16}}>
+                    {r.company || `${r.first_name||""} ${r.last_name||""}` || "—"}
                   </div>
-                  <div>
-                    <b>{labelFor(r.selected_option)}</b>
-                    {Number.isFinite(cnt) ? ` · ${cnt} St.` : ""}
-                  </div>
-                  <div className="ellipsis">
-                    {r.company || "—"} · {r.first_name} {r.last_name}
-                  </div>
-                  <div>
-                    {pdfUrl ? (
-                      <a className="btn small" href={pdfUrl} target="_blank" rel="noreferrer">
-                        PDF öffnen
-                      </a>
-                    ) : "—"}
+                  <div style={{color:"#64748b", fontSize:13}}>
+                    {r.first_name || "—"} {r.last_name || ""} · {r.email || "—"} · {r.phone || "—"}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
-      <style jsx>{`
-        .head{
-          display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px
-        }
-        h1{margin:0;font-size:22px;font-weight:900}
-        .filters{display:flex;gap:8px;flex-wrap:wrap}
-        .chip{
-          height:34px;padding:0 12px;border-radius:999px;border:1px solid #e5e7eb;background:#fff;cursor:pointer;font-weight:700
-        }
-        .chip.on{border-color:#0b6cf2;background:#eef5ff;color:#0b6cf2}
-        .card{
-          background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 12px 28px rgba(2,6,23,.06);
-          padding:14px
-        }
-        .table .thead,.table .tr{
-          display:grid;grid-template-columns:200px 1fr 180px 1fr 120px;gap:12px;align-items:center
-        }
-        .table .thead{font-weight:800;color:#334155;padding-bottom:8px;border-bottom:1px solid #eef2f7}
-        .table .tbody .tr{padding:10px 0;border-bottom:1px solid #f3f4f6}
-        .ellipsis{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .btn.small{
-          display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 10px;border-radius:10px;
-          background:#0b6cf2;color:#fff;text-decoration:none;font-weight:800;border:1px solid rgba(11,108,242,.3)
-        }
-        @media (max-width: 900px){
-          .table .thead,.table .tr{grid-template-columns:160px 1fr 150px 1fr 110px}
-        }
-        @media (max-width: 680px){
-          .table .thead,.table .tr{grid-template-columns:140px 1fr 120px}
-          .table .thead :nth-child(4), .table .thead :nth-child(5),
-          .table .tr :nth-child(4), .table .tr :nth-child(5){display:none}
-        }
-      `}</style>
-    </section>
+                <div style={{color:"#64748b", fontSize:13}}>
+                  {prettyDate(r.created_at)}
+                </div>
+              </div>
+
+              <div style={{marginTop:10, display:"grid", gridTemplateColumns:"1fr 1fr", gap:10}}>
+                <div style={{border:"1px solid #e5e7eb", borderRadius:12, padding:"10px 12px", background:"#f9fbff"}}>
+                  <div style={{fontSize:12, color:"#64748b", textTransform:"uppercase", letterSpacing:".06em", marginBottom:4}}>
+                    Google-Profil
+                  </div>
+                  <div style={{fontWeight:800}}>{r.google_profile || "—"}</div>
+                </div>
+
+                <div style={{border:"1px solid #e5e7eb", borderRadius:12, padding:"10px 12px", background:"#fff"}}>
+                  <div style={{fontSize:12, color:"#64748b", textTransform:"uppercase", letterSpacing:".06em", marginBottom:4}}>
+                    Auswahl
+                  </div>
+                  <div style={{fontWeight:800}}>
+                    {optionLabel(r.selected_option)}{Number.isFinite(chosen) ? ` → ${chosen} Stück` : ""}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{display:"flex", gap:10, flexWrap:"wrap", marginTop:12}}>
+                {r.pdf_url ? (
+                  <a
+                    href={r.pdf_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display:"inline-flex",
+                      alignItems:"center",
+                      gap:8,
+                      height:36,
+                      padding:"0 14px",
+                      borderRadius:999,
+                      background:"linear-gradient(135deg,#22c55e,#16a34a)",
+                      color:"#fff",
+                      fontWeight:900,
+                      textDecoration:"none",
+                      boxShadow:"0 8px 22px rgba(34,197,94,.35)"
+                    }}
+                  >
+                    ⬇️ Vertrag (PDF)
+                  </a>
+                ) : null}
+
+                {r.google_url ? (
+                  <a
+                    href={r.google_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display:"inline-flex",
+                      alignItems:"center",
+                      gap:8,
+                      height:36,
+                      padding:"0 14px",
+                      borderRadius:999,
+                      background:"#eef5ff",
+                      border:"1px solid #dbeafe",
+                      color:"#0a58c7",
+                      fontWeight:800,
+                      textDecoration:"none"
+                    }}
+                  >
+                    ↗ Google-Profil öffnen
+                  </a>
+                ) : null}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </main>
   );
 }
