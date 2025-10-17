@@ -32,7 +32,7 @@ export default function TopNav() {
           {/* Buttons rechts */}
           <div className="actions">
             <Link href="/dashboard/orders" className="btn orders">
-              📄 Meine Aufträge
+              📄 Meine&nbsp;Aufträge
             </Link>
 
             <button type="button" className="btn logout" onClick={handleLogout}>
@@ -45,18 +45,18 @@ export default function TopNav() {
       <div className="spacer" />
 
       <style jsx>{`
-        /* ——— Container ——— */
+        /* Grundlayout */
         .sb-topnav {
           position: sticky;
           top: 0;
           z-index: 50;
-          background: rgba(255, 255, 255, 0.85);
+          background: rgba(255, 255, 255, 0.9);
           backdrop-filter: blur(10px) saturate(1.2);
           border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
+          box-shadow: 0 8px 28px rgba(0, 0, 0, 0.04);
         }
         .spacer {
-          height: 70px;
+          height: 72px;
         }
         .inner {
           max-width: 1200px;
@@ -67,9 +67,9 @@ export default function TopNav() {
           justify-content: space-between;
         }
 
-        /* ——— Logo ——— */
+        /* Logo */
         .logo {
-          height: 44px;
+          height: 46px;
           width: auto;
           object-fit: contain;
           transition: transform 0.2s ease;
@@ -79,71 +79,70 @@ export default function TopNav() {
           transform: scale(1.04);
         }
 
-        /* ——— Button-Bereich ——— */
+        /* Buttons rechts */
         .actions {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 14px;
           flex-wrap: wrap;
         }
 
-        /* ——— Buttons ——— */
+        /* Basis-Button */
         .btn {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          padding: 0 18px;
-          height: 40px;
+          gap: 8px;
+          padding: 0 20px;
+          height: 42px;
           border-radius: 999px;
-          font-weight: 700;
-          font-size: 14.5px;
+          font-weight: 800;
+          font-size: 15px;
           letter-spacing: 0.2px;
-          text-decoration: none;
           cursor: pointer;
           border: none;
+          text-decoration: none;
           transition: all 0.18s ease;
         }
 
-        /* Hauptbutton */
+        /* 💙 Meine Aufträge – kräftiger, leuchtend blau */
         .btn.orders {
-          background: linear-gradient(135deg, #ffffff 0%, #f3f7ff 100%);
-          border: 1px solid rgba(11, 108, 242, 0.25);
-          color: #0b6cf2;
-          box-shadow: 0 6px 18px rgba(11, 108, 242, 0.18);
-          font-weight: 800;
+          background: linear-gradient(135deg, #0b6cf2 0%, #3b82f6 100%);
+          color: #ffffff;
+          box-shadow: 0 6px 18px rgba(11, 108, 242, 0.28);
         }
         .btn.orders:hover {
           transform: translateY(-1px);
-          box-shadow: 0 8px 22px rgba(11, 108, 242, 0.25);
           filter: brightness(1.05);
+          box-shadow: 0 10px 26px rgba(11, 108, 242, 0.35);
         }
         .btn.orders:active {
           transform: translateY(0);
-          filter: brightness(0.98);
+          filter: brightness(0.96);
         }
 
-        /* Logout: dezent, elegant */
+        /* Logout – dezent, elegant grau */
         .btn.logout {
           background: #f5f5f7;
           color: #111;
           border: 1px solid #e5e7eb;
           box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
-          font-weight: 600;
+          font-weight: 700;
         }
         .btn.logout:hover {
           background: #e8e8ea;
           transform: translateY(-1px);
         }
 
-        /* ——— Responsive ——— */
+        /* Responsiv */
         @media (max-width: 900px) {
           .logo {
             height: 38px;
           }
           .btn {
-            height: 36px;
-            padding: 0 14px;
-            font-size: 13.5px;
+            height: 38px;
+            padding: 0 16px;
+            font-size: 14px;
           }
         }
 
@@ -158,9 +157,9 @@ export default function TopNav() {
             gap: 8px;
           }
           .btn {
-            height: 34px;
+            height: 36px;
             padding: 0 12px;
-            font-size: 13px;
+            font-size: 13.5px;
           }
         }
       `}</style>
