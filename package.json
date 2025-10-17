@@ -2,13 +2,13 @@
   "name": "sternblitz-sales",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=20 <21"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start"
-  },
-  "engines": {
-    "node": "20.x"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.46.1",
@@ -18,7 +18,6 @@
     "react-dom": "18.3.1",
     "resend": "3.2.0"
   },
-  {
   "optionalDependencies": {
     "@next/swc-linux-x64-gnu": "14.2.3",
     "@next/swc-linux-arm64-gnu": "14.2.3",
@@ -26,5 +25,4 @@
     "@next/swc-darwin-arm64": "14.2.3",
     "@next/swc-win32-x64-msvc": "14.2.3"
   }
-}
 }
