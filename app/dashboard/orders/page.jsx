@@ -70,35 +70,35 @@ export default async function OrdersPage({ searchParams }) {
   } else {
     // fallback: alles (kein Filter)
   }
-
-  // --- Daten lesen ---
-  const sb = supabaseAdmin();
-  let q = sb.from("leads")
-    .select(
-      `
-      id,
-      created_at,
-      google_profile,
-      google_url,
-      company,
-      first_name,
-      last_name,
-      email,
-      phone,
-      selected_option,
-      counts,
-      pdf_url,
-      pdf_path
+// --- Daten lesen ---
+const sb = supabaseAdmin();
+let q = sb
+  .from("leads")
+  .select(
     `
-    )
-    .order("created_at", { ascending: false })
-    .limit(200);
+    id,
+    created_at,
+    google_profile,
+    google_url,
+    company,
+    first_name,
+    last_name,
+    email,
+    phone,
+    selected_option,
+    counts,
+    pdf_path,
+    pdf_signed_url
+  `
+  )
+  .order("created_at", { ascending: false })
+  .limit(200);
 
-  if (gte && lt) {
-    q = q.gte("created_at", toISO(gte)).lt("created_at", toISO(lt));
-  }
+if (gte && lt) {
+  q = q.gte("created_at", toISO(gte)).lt("created_at", toISO(lt));
+}
 
-  const { data: rows, error } = await q;
+const { data: rows, error } = await q;
 
   return (
     <main style={{ maxWidth: 1100, margin: "20px auto", padding: "0 16px" }}>
@@ -121,8 +121,8 @@ export default async function OrdersPage({ searchParams }) {
             const label = chosenLabel(r.selected_option);
             const count = chosenCount(r.selected_option, r.counts);
             const pdfUrl =
-              r.pdf_url || // unser Feld aus der API
-              (r.pdf_path ? publicFromPath(r.pdf_path) : null);
+  r.pdf_signed_url ||
+  (r.pdf_path ? publicFromPath(r.pdf_path) : null);
 
             return (
               <article key={r.id} style={cardStyle}>
