@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { useSearchParams } from "next/navigation";
+
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -8,6 +10,8 @@ export default function LoginPage() {
   const [err, setErr] = useState(null);
   const [ok, setOk] = useState(null);
   const [loading, setLoading] = useState(false);
+  const sp = useSearchParams();
+const redirect = sp?.get("redirect") || "/dashboard";
 
   useEffect(() => {
     supabase().auth.getSession().then(({ data }) => {
@@ -24,7 +28,7 @@ export default function LoginPage() {
     setLoading(false);
     if (error) { setErr(error.message); return; }
     setOk("Login erfolgreich. Weiterleiten…");
-    window.location.href = "/dashboard";
+    window.location.href = redirect;
   };
 
   return (
