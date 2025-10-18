@@ -1,0 +1,129 @@
+.orders-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem 2rem;
+}
+
+.orders-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.orders-header h1 {
+  margin: 0;
+  font-size: 1.75rem;
+}
+
+.orders-role {
+  margin: 0.25rem 0 0;
+  color: #4d5562;
+  font-size: 0.95rem;
+}
+
+.orders-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.orders-filter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid #d0d5dd;
+  color: #344054;
+  background: #fff;
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: all 0.15s ease-in-out;
+}
+
+.orders-filter:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.orders-filter.active {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+
+.orders-error {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.orders-table-wrapper {
+  overflow-x: auto;
+  border-radius: 0.75rem;
+  border: 1px solid #e4e7ec;
+}
+
+.orders-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+
+.orders-table th,
+.orders-table td {
+  padding: 0.85rem 1rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid #f2f4f7;
+}
+
+.orders-table th {
+  background: #f8fafc;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.orders-cell-main {
+  font-weight: 500;
+  color: #111827;
+}
+
+.orders-cell-sub {
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+
+.orders-link {
+  display: inline-block;
+  margin-top: 0.35rem;
+  font-size: 0.85rem;
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.orders-link:hover {
+  text-decoration: underline;
+}
+
+.orders-empty {
+  padding: 2rem;
+  border-radius: 0.75rem;
+  border: 1px dashed #cbd5e1;
+  text-align: center;
+  color: #475569;
+}
+
+@media (max-width: 768px) {
+  .orders-page {
+    padding: 1.5rem;
+  }
+
+  .orders-header {
+    align-items: stretch;
+  }
+}
