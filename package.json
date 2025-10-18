@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/run-next-build.cjs",
     "start": "next start",
     "smoke": "node --test tests/smoke.test.js"
   },
