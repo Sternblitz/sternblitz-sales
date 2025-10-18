@@ -9,6 +9,7 @@ export default function TopNav() {
 
   const handleLogout = async () => {
     try {
+      await fetch("/api/auth/logout", { method: "POST" });
       await supabase().auth.signOut();
     } catch (e) {
       console.error(e);

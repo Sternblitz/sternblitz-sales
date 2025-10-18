@@ -20,8 +20,9 @@ export async function middleware(req) {
   } = await supabase.auth.getSession();
 
   if (!session && isProtected) {
-    // Kein redirect-Parameter mehr — nur simpler Login-Redirect
-    return NextResponse.redirect(new URL("/login", req.url));
+    const redirectUrl = new URL("/login", req.url);
+    redirectUrl.searchParams.set("redirect", pathname || "/dashboard");
+    return NextResponse.redirect(redirectUrl);
   }
 
   return res;
