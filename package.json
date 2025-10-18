@@ -7,18 +7,23 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
+    "build": "node scripts/run-next-build.cjs",
+    "start": "next start",
+    "smoke": "node --test tests/smoke.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.46.1",
     "@supabase/auth-helpers-nextjs": "0.10.0",
+    "@types/node": "20.12.7",
+    "@types/react": "18.3.3",
     "next": "14.2.3",
     "pdf-lib": "1.17.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "resend": "3.2.0"
+    "resend": "3.2.0",
+    "typescript": "5.4.5"
   },
+  "devDependencies": {},
   "optionalDependencies": {
     "@next/swc-linux-x64-gnu": "14.2.3",
     "@next/swc-linux-arm64-gnu": "14.2.3",
