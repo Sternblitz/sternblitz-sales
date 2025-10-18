@@ -1,7 +1,7 @@
 // app/api/orders/list/route.js
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/auth-helpers-nextjs";
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { supabaseAdmin } from "@/lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
@@ -241,18 +241,7 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
     const requestedRange = (searchParams.get("range") || "30d").toString();
 
-    const cookieStore = cookies();
-    const serverClient = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      {
-        cookies: {
-          get(name) {
-            return cookieStore.get(name)?.value;
-          },
-        },
-      }
-    );
+    const serverClient = createRouteHandlerClient({ cookies });
 
     const {
       data: { user },
