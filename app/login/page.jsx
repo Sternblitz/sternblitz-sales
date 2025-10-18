@@ -80,7 +80,8 @@ function LoginScreen() {
   const searchParams = useSearchParams();
   const redirectParam = searchParams?.get("redirect") || DEFAULT_REDIRECT;
   const redirectTo = useMemo(() => sanitizeRedirect(redirectParam), [redirectParam]);
-  const redirectTimeoutRef = useRef(null);
+  const redirectDelayRef = useRef(null);
+  const hardRedirectRef = useRef(null);
   const redirectedRef = useRef(false);
 
   const goToTarget = useCallback(() => {
@@ -92,6 +93,16 @@ function LoginScreen() {
     } catch {}
     router.replace(redirectTo);
     router.refresh();
+
+    if (typeof window !== "undefined") {
+      if (hardRedirectRef.current) {
+        clearTimeout(hardRedirectRef.current);
+        hardRedirectRef.current = null;
+      }
+      hardRedirectRef.current = window.setTimeout(() => {
+        window.location.assign(redirectTo);
+      }, 1600);
+    }
   }, [redirectTo, router]);
 
   useEffect(() => {
@@ -112,10 +123,23 @@ function LoginScreen() {
     };
   }, [goToTarget]);
 
+  useEffect(() => {
+    const { data } = supabase().auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        goToTarget();
+      }
+    });
+    return () => data?.subscription?.unsubscribe();
+  }, [goToTarget]);
+
   useEffect(() => () => {
-    if (redirectTimeoutRef.current) {
-      clearTimeout(redirectTimeoutRef.current);
-      redirectTimeoutRef.current = null;
+    if (redirectDelayRef.current) {
+      clearTimeout(redirectDelayRef.current);
+      redirectDelayRef.current = null;
+    }
+    if (hardRedirectRef.current) {
+      clearTimeout(hardRedirectRef.current);
+      hardRedirectRef.current = null;
     }
   }, []);
 
@@ -142,8 +166,7 @@ function LoginScreen() {
     }
 
     setOk("Login erfolgreich. Weiterleiten…");
-    setRedirecting(true);
-    redirectTimeoutRef.current = setTimeout(() => {
+    redirectDelayRef.current = setTimeout(() => {
       goToTarget();
     }, 350);
   };
