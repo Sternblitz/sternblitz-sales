@@ -1,14 +1,30 @@
 // app/login/page.jsx
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [err, setErr] = useState(null);
   const [ok, setOk] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [redirectTarget, setRedirectTarget] = useState("/dashboard");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const redirectParam = params.get("redirect");
+      if (redirectParam && redirectParam.startsWith("/") && !redirectParam.startsWith("//")) {
+        setRedirectTarget(redirectParam);
+      }
+    } catch {
+      // Ignorieren und bei /dashboard bleiben
+    }
+  }, []);
 
   const onLogin = async (e) => {
     e.preventDefault();
@@ -34,10 +50,9 @@ export default function LoginPage() {
 
     setOk("Login erfolgreich. Weiterleiten…");
 
-    // HARTE Weiterleitung nach kurzer Wartezeit
-    setTimeout(() => {
-      window.location.assign("/dashboard");
-    }, 300);
+    const target = redirectTarget || "/dashboard";
+    router.replace(target);
+    router.refresh();
   };
 
   return (
