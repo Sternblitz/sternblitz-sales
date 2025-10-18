@@ -1,14 +1,24 @@
 // app/login/page.jsx
 "use client";
-import { useState } from "react";
+import { Suspense, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-export default function LoginPage() {
+function LoginContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [err, setErr] = useState(null);
   const [ok, setOk] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  const redirectTarget = useMemo(() => {
+    const param = searchParams?.get("redirect") || "/dashboard";
+    if (!param.startsWith("/")) return "/dashboard";
+    return param;
+  }, [searchParams]);
 
   const onLogin = async (e) => {
     e.preventDefault();
@@ -21,23 +31,40 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    const { error } = await supabase().auth.signInWithPassword({
-      email,
-      password: pw,
-    });
-    setLoading(false);
 
-    if (error) {
-      setErr(error.message);
-      return;
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password: pw }),
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok || payload?.error) {
+        throw new Error(payload?.error || "Login fehlgeschlagen.");
+      }
+
+      const session = payload?.session;
+      if (session?.access_token && session?.refresh_token) {
+        const { error: setSessionError } = await supabase().auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        });
+        if (setSessionError) {
+          throw setSessionError;
+        }
+      }
+
+      setOk("Login erfolgreich. Weiterleiten…");
+      setTimeout(() => {
+        router.replace(redirectTarget || "/dashboard");
+      }, 350);
+    } catch (error) {
+      console.error("Login fehlgeschlagen", error);
+      setErr(error?.message || "Login fehlgeschlagen.");
+    } finally {
+      setLoading(false);
     }
-
-    setOk("Login erfolgreich. Weiterleiten…");
-
-    // HARTE Weiterleitung nach kurzer Wartezeit
-    setTimeout(() => {
-      window.location.assign("/dashboard");
-    }, 300);
   };
 
   return (
@@ -119,5 +146,13 @@ export default function LoginPage() {
         }
       `}</style>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
   );
 }
