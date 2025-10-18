@@ -1,6 +1,7 @@
 // app/login/page.jsx
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
@@ -9,6 +10,18 @@ export default function LoginPage() {
   const [err, setErr] = useState(null);
   const [ok, setOk] = useState(null);
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const [redirectTarget, setRedirectTarget] = useState("/dashboard");
+  const fallbackTimer = useRef(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get("redirect");
+    if (raw && raw.startsWith("/")) {
+      setRedirectTarget(raw);
+    }
+  }, []);
 
   const onLogin = async (e) => {
     e.preventDefault();
@@ -34,11 +47,32 @@ export default function LoginPage() {
 
     setOk("Login erfolgreich. Weiterleiten…");
 
-    // HARTE Weiterleitung nach kurzer Wartezeit
-    setTimeout(() => {
-      window.location.assign("/dashboard");
-    }, 300);
+    const target = redirectTarget || "/dashboard";
+    router.replace(target);
+    router.refresh();
+
+    if (typeof window !== "undefined") {
+      if (fallbackTimer.current) {
+        clearTimeout(fallbackTimer.current);
+        fallbackTimer.current = null;
+      }
+      fallbackTimer.current = window.setTimeout(() => {
+        fallbackTimer.current = null;
+        if (window.location.pathname === "/login") {
+          window.location.assign(target);
+        }
+      }, 600);
+    }
   };
+
+  useEffect(() => {
+    return () => {
+      if (fallbackTimer.current) {
+        clearTimeout(fallbackTimer.current);
+        fallbackTimer.current = null;
+      }
+    };
+  }, []);
 
   return (
     <main className="login-bg">

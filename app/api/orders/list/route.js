@@ -1,19 +1,54 @@
 // app/api/orders/list/route.js
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/auth-helpers-nextjs";
 import { supabaseAdmin } from "@/lib/supabaseServer";
 
-// helpers
+export const runtime = "nodejs"; // kein Edge, damit pdf/Storage etc. sauber laufen
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+// Zeitraum-Helfer
 function startOfToday() { const d = new Date(); d.setHours(0,0,0,0); return d; }
 function startOfYesterday() { const d = startOfToday(); d.setDate(d.getDate()-1); return d; }
-function startOfNDaysAgo(n){ const d = startOfToday(); d.setDate(d.getDate()-n); return d; }
+function startOfNDaysAgo(n) { const d = startOfToday(); d.setDate(d.getDate()-n); return d; }
 const toISO = (d) => new Date(d).toISOString();
 
 export async function GET(req) {
   try {
-    const { searchParams } = new URL(req.url);
-    const range = (searchParams.get("range") || "all").toString(); // today|yesterday|7d|all
+    // 1) User aus Cookies lesen (KEIN Redirect, nur API)
+    const cookieStore = cookies();
+    const sbClient = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      { cookies: { get: (key) => cookieStore.get(key)?.value } }
+    );
+    const { data: { user }, error: userErr } = await sbClient.auth.getUser();
+    if (userErr) throw userErr;
+    if (!user) return NextResponse.json({ error: "Nicht eingeloggt" }, { status: 401 });
 
-    // timeframe
+    // 2) Rolle bestimmen
+    // a) aus user.user_metadata.role (wenn du sie beim Onboarding setzt)
+    let role = user.user_metadata?.role || null;
+
+    // b) optional aus "profiles" Tabelle (falls vorhanden)
+    if (!role) {
+      try {
+        const { data: prof } = await supabaseAdmin()
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .maybeSingle();
+        role = prof?.role || null;
+      } catch {}
+    }
+
+    // Default-Rolle
+    if (!role) role = "sales"; // "admin" | "team_lead" | "sales"
+
+    // 3) Zeitraumfilter aus Query
+    const { searchParams } = new URL(req.url);
+    const range = (searchParams.get("range") || "").toString(); // "today" | "yesterday" | "7d" | ""
     let gte = null, lt = null;
     if (range === "today") {
       gte = startOfToday(); lt = new Date(gte); lt.setDate(lt.getDate()+1);
@@ -23,8 +58,8 @@ export async function GET(req) {
       gte = startOfNDaysAgo(6); lt = new Date();
     }
 
-    const sb = supabaseAdmin();
-    let q = sb
+    // 4) Basis-Query
+    let q = supabaseAdmin()
       .from("leads")
       .select(`
         id,
@@ -39,20 +74,35 @@ export async function GET(req) {
         selected_option,
         counts,
         pdf_path,
-        pdf_signed_url
+        pdf_signed_url,
+        source_account_id,
+        rep_code
       `)
       .order("created_at", { ascending: false })
-      .limit(200);
+      .limit(300);
 
-    if (gte && lt) q = q.gte("created_at", toISO(gte)).lt("created_at", toISO(lt));
-
-    const { data, error } = await q;
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+    // Zeitraum anwenden
+    if (gte && lt) {
+      q = q.gte("created_at", toISO(gte)).lt("created_at", toISO(lt));
     }
 
-    return NextResponse.json({ ok: true, rows: data ?? [] });
+    // 5) Rollen-Scoping
+    // - admin: sieht alles
+    // - sales: nur eigene (source_account_id = user.id)
+    // - team_lead: (hier erstmal wie sales ODER du hinterlegst später Team-Logik)
+    if (role === "sales") {
+      q = q.eq("source_account_id", user.id);
+    } else if (role === "team_lead") {
+      // QUICK WIN: zeig vorerst nur eigene. (Später: Team-Zuordnung/Relation ergänzen)
+      q = q.eq("source_account_id", user.id);
+    } // admin = kein Filter
+
+    const { data: rows, error } = await q;
+    if (error) throw error;
+
+    return NextResponse.json({ rows: rows || [] });
   } catch (e) {
-    return NextResponse.json({ error: e?.message || "Unknown error" }, { status: 500 });
+    console.error("orders/list error:", e);
+    return NextResponse.json({ error: e?.message || "Fehler" }, { status: 500 });
   }
 }
