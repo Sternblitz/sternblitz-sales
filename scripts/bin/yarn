@@ -1,3 +1,65 @@
-#!/bin/sh
-exit 1
+#!/usr/bin/env node
+const { spawnSync } = require('node:child_process');
 
+const args = process.argv.slice(2);
+if (args.length === 0 || args.includes('--help')) {
+  console.error('This project uses npm internally.');
+  process.exit(0);
+}
+if (args.includes('--version') || args.includes('-v')) {
+  console.log('1.0.0-npm-shim');
+  process.exit(0);
+}
+
+if (args[0] !== 'add') {
+  console.error('Unsupported yarn command: ' + args[0]);
+  process.exit(1);
+}
+
+let cwd = process.cwd();
+let dev = false;
+let exact = false;
+const packages = [];
+for (let i = 1; i < args.length; i += 1) {
+  const token = args[i];
+  if (token === '--cwd') {
+    cwd = args[i + 1] ?? cwd;
+    i += 1;
+    continue;
+  }
+  if (token.startsWith('--cwd=')) {
+    cwd = token.split('=')[1] ?? cwd;
+    continue;
+  }
+  if (token === '--dev' || token === '-D') {
+    dev = true;
+    continue;
+  }
+  if (token === '--exact' || token === '-E') {
+    exact = true;
+    continue;
+  }
+  if (token === '--tilde' || token === '-T' || token === '--caret' || token === '-C' || token === '--peer' || token === '-P' || token === '--optional' || token === '-O') {
+    continue;
+  }
+  if (token.startsWith('-')) {
+    continue;
+  }
+  packages.push(token);
+}
+
+if (packages.length === 0) {
+  process.exit(0);
+}
+
+const npmArgs = ['install'];
+if (dev) {
+  npmArgs.push('--save-dev');
+}
+if (exact) {
+  npmArgs.push('--save-exact');
+}
+npmArgs.push(...packages);
+
+const result = spawnSync('npm', npmArgs, { stdio: 'inherit', cwd });
+process.exit(result.status ?? 1);
