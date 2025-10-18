@@ -1,0 +1,164 @@
+.ordersPage {
+  padding: 32px 24px;
+  max-width: 1120px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.heading {
+  margin: 0;
+  font-size: 28px;
+}
+
+.sub {
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 15px;
+}
+
+@media (min-width: 768px) {
+  .header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.rangeNav {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  font-weight: 600;
+  font-size: 14px;
+  color: #1f2937;
+  text-decoration: none;
+  transition: all 0.18s ease;
+}
+
+.chip:hover {
+  border-color: #0b6cf2;
+  color: #0b6cf2;
+}
+
+.chipActive {
+  border-color: #0b6cf2;
+  background: #eef5ff;
+  color: #0b6cf2;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  background: #fff;
+}
+
+.ordersTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+
+.ordersTable th {
+  text-align: left;
+  padding: 16px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b7280;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.ordersTable td {
+  padding: 16px;
+  vertical-align: top;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ordersTable tr:last-child td {
+  border-bottom: none;
+}
+
+.cellMain {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.cellSub {
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+.docLink {
+  color: #0b6cf2;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.docLink:hover {
+  text-decoration: underline;
+}
+
+.skeleton {
+  display: grid;
+  gap: 12px;
+}
+
+.skeletonRow {
+  height: 62px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.state {
+  border-radius: 16px;
+  padding: 28px;
+  text-align: center;
+}
+
+.state h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+
+.stateDefault {
+  border: 1px dashed #d1d5db;
+  color: #6b7280;
+}
+
+.stateError {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
