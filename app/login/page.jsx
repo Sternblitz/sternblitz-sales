@@ -1,6 +1,6 @@
 // app/login/page.jsx
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const [redirectTarget, setRedirectTarget] = useState("/dashboard");
+  const fallbackTimer = useRef(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -46,10 +47,32 @@ export default function LoginPage() {
 
     setOk("Login erfolgreich. Weiterleiten…");
 
-    setTimeout(() => {
-      router.replace(redirectTarget);
-    }, 200);
+    const target = redirectTarget || "/dashboard";
+    router.replace(target);
+    router.refresh();
+
+    if (typeof window !== "undefined") {
+      if (fallbackTimer.current) {
+        clearTimeout(fallbackTimer.current);
+        fallbackTimer.current = null;
+      }
+      fallbackTimer.current = window.setTimeout(() => {
+        fallbackTimer.current = null;
+        if (window.location.pathname === "/login") {
+          window.location.assign(target);
+        }
+      }, 600);
+    }
   };
+
+  useEffect(() => {
+    return () => {
+      if (fallbackTimer.current) {
+        clearTimeout(fallbackTimer.current);
+        fallbackTimer.current = null;
+      }
+    };
+  }, []);
 
   return (
     <main className="login-bg">
